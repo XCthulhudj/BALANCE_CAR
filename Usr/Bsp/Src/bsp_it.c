@@ -5,8 +5,8 @@
 #include "stm32f1xx_hal.h"
 
 #include "usr_queue.h"
-#include "oled_iic_4.h"
 #include "bsp_uart.h"
+#include "bsp_i2c.h"
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance == USART1){
@@ -30,7 +30,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c){
     if(hi2c->Instance == I2C1){
-        oled_send();
+        i2c1_check();
     }else if(hi2c->Instance ==I2C2){
         
     }else{

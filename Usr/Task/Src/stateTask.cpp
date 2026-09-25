@@ -12,7 +12,7 @@ void stateTask(void *argument){
     uint32_t tick = osKernelGetTickCount();
 
     //oled
-    oled_init();
+    // oled_init();
     ws2812_start();
     while(1){
         

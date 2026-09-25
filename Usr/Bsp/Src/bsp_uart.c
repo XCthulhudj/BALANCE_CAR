@@ -81,8 +81,7 @@ uart_state_t uart1_check(void){
         uart1_tx.tx_width = 0;
         uart1_tx.state = UART_IDLE;
         ret = UART_IDLE;
-    }
-    else{
+    }else{
         uart1_tx.tx_width = uart1_tx.queue.usedSize;
         uart1_start(uart1_tx.tx_width);
     }
@@ -169,8 +168,7 @@ uart_state_t uart2_write_data(const void *data_ptr, uint16_t size){
 
 static void uart1_start(uint16_t size){
     uint16_t contiguous = uart1_tx.queue.size - uart1_tx.queue.head;
-
-    if (size > contiguous) {
+    if (size > contiguous){
         size = contiguous;
     }
 
@@ -181,8 +179,7 @@ static void uart1_start(uint16_t size){
 
 static void uart2_start(uint16_t size){
     uint16_t contiguous = uart2_tx.queue.size - uart2_tx.queue.head;
-
-    if (size > contiguous) {
+    if (size > contiguous){
         size = contiguous;
     }
 

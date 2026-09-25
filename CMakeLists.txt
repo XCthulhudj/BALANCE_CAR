@@ -52,6 +52,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
     "Usr/Bsp/Src/bsp_it.c"
     "Usr/Bsp/Src/bsp_uart.c"
+    "Usr/Bsp/Src/bsp_i2c.c"
 
     "Usr/Driver/OLED/oled_iic_4.c"
     "Usr/Driver/WS2812/ws2812_driver.c"
