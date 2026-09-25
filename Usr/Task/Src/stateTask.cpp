@@ -13,12 +13,9 @@ void stateTask(void *argument){
 
     //oled
     oled_init();
-    // oled_show_picture(0, 0);
-    oled_show_fonts(0, 0);
+    ws2812_start();
     while(1){
-        ws2812_rainbow(1);
-        // oled_show_anim(0, 100);
-
+        
         tick += delayTick;
         osDelayUntil(tick);
     }

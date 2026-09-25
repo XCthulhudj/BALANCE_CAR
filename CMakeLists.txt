@@ -48,6 +48,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     "Usr/usr_config.c"
 
     "Usr/App/Src/rc.c"
+    "Usr/App/Src/app_debug.c"
 
     "Usr/Bsp/Src/bsp_it.c"
     "Usr/Bsp/Src/bsp_uart.c"

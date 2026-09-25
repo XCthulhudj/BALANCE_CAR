@@ -23,12 +23,18 @@ extern "C" {
 #define RGB_PINK        0xFFC0CB
 #define RGB_GRAY        0x808080
 
+#define ws2812_start() (ws2812_rgb_all(RGB_GREEN))
+#define ws2812_calibrate() (ws2812_effect_flow(RGB_BLUE, 100u))
+#define ws2812_rc() (ws2812_effect_blink(RGB_GREEN, 100u, 100u))
+#define ws2812_run() (ws2812_rainbow(10u))
+#define ws2812_error() (ws2812_rgb_all(RGB_RED))
+
 typedef enum{
-    WS2812_SUCCESS              =  0,
-    WS2812_ERROR_INVALID_PARAM  = -1,
-    WS2812_ERROR_MEMORY         = -2,
-    WS2812_ERROR_HARDWARE       = -3,
-    WS2812_WAITING_DELAY        = -4
+    WS2812_SUCCESS              =   0,
+    WS2812_ERROR_INVALID_PARAM  =   1,
+    WS2812_ERROR_MEMORY         =   2,
+    WS2812_ERROR_HARDWARE       =   3,
+    WS2812_WAITING_DELAY        =   4
 }ws2812_state_t;
 
 typedef uint32_t RGB_Color;
@@ -37,7 +43,7 @@ ws2812_state_t ws2812_rgb_all(uint32_t rgb);
 ws2812_state_t ws2812_rgb_unit(uint32_t rgb, uint16_t pixel_id);
 ws2812_state_t ws2812_effect_flow(uint32_t rgb, uint16_t delay_ms);
 ws2812_state_t ws2812_effect_blink(uint32_t rgb, uint16_t on_ms, uint16_t off_ms);
-ws2812_state_t ws2812_effect_gradient(uint32_t rgb1, uint32_t rgb2, uint16_t steps, uint16_t delay_ms);
+ws2812_state_t ws2812_effect_gradient(uint32_t rgb1, uint32_t rgb2, uint16_t delay_ms);
 ws2812_state_t ws2812_rainbow(uint16_t delay_ms);
 
 RGB_Color HSV_ToRGB(uint16_t h, uint8_t s, uint8_t v);

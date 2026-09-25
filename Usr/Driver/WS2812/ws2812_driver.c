@@ -7,6 +7,7 @@
 #include "ws2812_driver.h"
 
 #include <stdint.h>
+#include <stdarg.h>
 
 #include <cmsis_os2.h>
 #include "FreeRTOS.h"
@@ -106,8 +107,9 @@ ws2812_state_t ws2812_effect_blink(uint32_t rgb, uint16_t on_ms, uint16_t off_ms
 }
 
 /* 渐变：所有灯珠同步从 rgb1 过渡到 rgb2 */
-ws2812_state_t ws2812_effect_gradient(uint32_t rgb1, uint32_t rgb2, uint16_t steps, uint16_t delay_ms) {
+ws2812_state_t ws2812_effect_gradient(uint32_t rgb1, uint32_t rgb2, uint16_t delay_ms){
     if(usr_delay_ms(delay_ms) != USR_DELAY_SUCCESS_END) return WS2812_WAITING_DELAY;
+    uint8_t steps = 100u;
     uint8_t r1 = RGB_R(rgb1), g1 = RGB_G(rgb1), b1 = RGB_B(rgb1);
     uint8_t r2 = RGB_R(rgb2), g2 = RGB_G(rgb2), b2 = RGB_B(rgb2);
     static uint16_t i = 0;
@@ -149,14 +151,8 @@ RGB_Color HSV_ToRGB(uint16_t h, uint8_t s, uint8_t v){
 }
 
 ws2812_state_t ws2812_rainbow(uint16_t delay_ms){
+    if(usr_delay_ms(delay_ms) != USR_DELAY_SUCCESS_END) return WS2812_WAITING_DELAY;
     static uint16_t hue = 0;
-    static uint32_t last_time = 0;
-
-    uint32_t now = HAL_GetTick();
-
-    if ((now - last_time) < delay_ms) return WS2812_SUCCESS;
-
-    last_time = now;
 
     uint32_t colors[PIXEL_NUM];
 

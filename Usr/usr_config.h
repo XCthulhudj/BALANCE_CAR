@@ -70,3 +70,4 @@ void stateTask(void *argument);
 #ifdef __cplusplus
 }
 #endif
+// git -c http.sslBackend=schannel -c http.version=HTTP/1.1 push -u origin main

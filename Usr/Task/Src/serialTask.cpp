@@ -6,8 +6,8 @@
 #include "task.h"
 
 #include "usr_config.h"
-#include "bsp_uart.h"
 #include "usr_delay.h"
+#include "app_debug.h"
 
 void serialTask(void *argument){
     (void)argument;
@@ -17,11 +17,8 @@ void serialTask(void *argument){
     uint32_t tick = osKernelGetTickCount();
 
     while(1){
-        // uart1_write_arr((uint8_t*)"fuck", 5);
-        if(usr_delay_ms(500) == USR_DELAY_SUCCESS_END){
-            uart2_write_arr((uint8_t*)"hello\n", 7);
-        }
-        
+        DEBUG_PRINT("hello\n");
+
         tick += delayTick;
         osDelayUntil(tick);
     }
