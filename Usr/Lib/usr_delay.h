@@ -9,9 +9,9 @@ extern "C" {
 #include "stm32f1xx_hal.h"
 
 typedef enum{
-    USR_DELAY_SUCCESS_END       = 1,
-    USR_DELAY_SUCCESS_WAITING   = 0,
-    USR_DELAY_ERROR_RUNTIME     = -1
+    USR_DELAY_SUCCESS_END = 0,
+    USR_DELAY_SUCCESS_WAITING,
+    USR_DELAY_ERROR_RUNTIME
 }usr_delay_t;
 
 #define usr_delay_ms(ms)                                    \

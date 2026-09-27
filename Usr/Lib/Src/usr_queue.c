@@ -59,3 +59,18 @@ usr_queue_state_t usr_queue_out_dump(usr_queue_t *queue_ptr, uint32_t size){
     }
     return QUEUE_OK;
 }
+
+usr_queue_state_t usr_queue_in_blank(usr_queue_t *queue_ptr, uint32_t size){
+    uint32_t i;
+    for(i = 0; i < size; i++){
+        uint32_t index = (queue_ptr->tail + 1) % queue_ptr->size;
+
+        if(index == queue_ptr->head) return QUEUE_OVERLOAD;
+
+        queue_ptr->tail = index;
+        queue_ptr->usedSize = (queue_ptr->tail + queue_ptr->size - queue_ptr->head) % queue_ptr->size;
+    }
+    return QUEUE_OK;
+}
+
+

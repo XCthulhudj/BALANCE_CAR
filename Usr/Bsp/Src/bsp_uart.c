@@ -17,10 +17,10 @@ extern DMA_HandleTypeDef hdma_usart2_tx;
 #define UART2_TX_BUFF_SIZE 256
 #define UART2_RX_BUFF_SIZE 256
 
-uint8_t uart1_queue_tx_buff[UART1_TX_BUFF_SIZE];
-uint8_t uart1_rx_buff[UART1_RX_BUFF_SIZE];
-uint8_t uart2_queue_tx_buff[UART2_TX_BUFF_SIZE];
-uint8_t uart2_rx_buff[UART2_RX_BUFF_SIZE];
+static uint8_t uart1_queue_tx_buff[UART1_TX_BUFF_SIZE];
+static uint8_t uart1_rx_buff[UART1_RX_BUFF_SIZE];
+static uint8_t uart2_queue_tx_buff[UART2_TX_BUFF_SIZE];
+static uint8_t uart2_rx_buff[UART2_RX_BUFF_SIZE];
 
 uart_tx_t uart1_tx = {
     .queue = {
@@ -62,8 +62,8 @@ uart_rx_t uart2_rx = {
     .frame_ready = 0
 };
 
-static void uart1_start(uint16_t size);
-static void uart2_start(uint16_t size);
+static void uart1_tx_start(uint16_t size);
+static void uart2_tx_start(uint16_t size);
 
 uart_state_t uart1_init(void){
     /* First, enable the receive interrupt */
@@ -74,7 +74,7 @@ uart_state_t uart1_init(void){
     return UART_SUCCESS;
 }
 
-uart_state_t uart1_check(void){
+uart_state_t uart1_tx_check(void){
     uart_state_t ret = UART_BUSY;
     usr_queue_out_dump(&uart1_tx.queue, uart1_tx.tx_width);
     if(uart1_tx.queue.usedSize == 0){
@@ -83,7 +83,7 @@ uart_state_t uart1_check(void){
         ret = UART_IDLE;
     }else{
         uart1_tx.tx_width = uart1_tx.queue.usedSize;
-        uart1_start(uart1_tx.tx_width);
+        uart1_tx_start(uart1_tx.tx_width);
     }
     return ret;
 }
@@ -96,7 +96,7 @@ uart_state_t uart1_write_byte(uint8_t data){
     if(uart1_tx.state != UART_BUSY){
         uart1_tx.state = UART_BUSY;
         uart1_tx.tx_width = 1;
-        uart1_start(uart1_tx.tx_width);
+        uart1_tx_start(uart1_tx.tx_width);
     }
     return ret;
 }
@@ -112,7 +112,7 @@ uart_state_t uart1_write_data(const void *data_ptr, uint16_t size){
     if(uart1_tx.state != UART_BUSY){
         uart1_tx.state = UART_BUSY;
         uart1_tx.tx_width = tx_width_tmp;
-        uart1_start(uart1_tx.tx_width);
+        uart1_tx_start(uart1_tx.tx_width);
     }
     return ret;
 }
@@ -122,7 +122,7 @@ uart_state_t uart2_init(void){
     return UART_SUCCESS;
 }
 
-uart_state_t uart2_check(void){
+uart_state_t uart2_tx_check(void){
     uart_state_t ret = UART_BUSY;
     usr_queue_out_dump(&uart2_tx.queue, uart2_tx.tx_width);
     if(uart2_tx.queue.usedSize == 0){
@@ -132,7 +132,7 @@ uart_state_t uart2_check(void){
     }
     else{
         uart2_tx.tx_width = uart2_tx.queue.usedSize;
-        uart2_start(uart2_tx.tx_width);
+        uart2_tx_start(uart2_tx.tx_width);
     }
     return ret;
 }
@@ -145,7 +145,7 @@ uart_state_t uart2_write_byte(uint8_t data){
     if(uart2_tx.state != UART_BUSY){
         uart2_tx.state = UART_BUSY;
         uart2_tx.tx_width = 1;
-        uart2_start(uart2_tx.tx_width);
+        uart2_tx_start(uart2_tx.tx_width);
     }
     return ret;
 }
@@ -161,12 +161,12 @@ uart_state_t uart2_write_data(const void *data_ptr, uint16_t size){
     if(uart2_tx.state != UART_BUSY){
         uart2_tx.state = UART_BUSY;
         uart2_tx.tx_width = tx_width_tmp;
-        uart2_start(uart2_tx.tx_width);
+        uart2_tx_start(uart2_tx.tx_width);
     }
     return ret;
 }
 
-static void uart1_start(uint16_t size){
+static void uart1_tx_start(uint16_t size){
     uint16_t contiguous = uart1_tx.queue.size - uart1_tx.queue.head;
     if (size > contiguous){
         size = contiguous;
@@ -177,7 +177,7 @@ static void uart1_start(uint16_t size){
     HAL_UART_Transmit_DMA(&huart1, &uart1_queue_tx_buff[uart1_tx.queue.head], size);
 }
 
-static void uart2_start(uint16_t size){
+static void uart2_tx_start(uint16_t size){
     uint16_t contiguous = uart2_tx.queue.size - uart2_tx.queue.head;
     if (size > contiguous){
         size = contiguous;

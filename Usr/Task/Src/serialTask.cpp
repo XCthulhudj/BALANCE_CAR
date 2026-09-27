@@ -6,8 +6,9 @@
 #include "task.h"
 
 #include "usr_config.h"
-#include "usr_delay.h"
 #include "app_debug.h"
+#include "usr_delay.h"
+#include "mpu6050_iic.h"
 
 void serialTask(void *argument){
     (void)argument;
@@ -17,7 +18,8 @@ void serialTask(void *argument){
     uint32_t tick = osKernelGetTickCount();
 
     while(1){
-        DEBUG_PRINT("hello\n");
+        CHECK_STACK_AVAILABLE(serialTask);
+        CHECK_HEAP_AVAILABLE();
 
         tick += delayTick;
         osDelayUntil(tick);

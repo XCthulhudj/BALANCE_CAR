@@ -30,11 +30,11 @@ typedef struct{
 }uart_rx_t;
 
 uart_state_t uart1_init(void);
-uart_state_t uart1_check(void);
+uart_state_t uart1_tx_check(void);
 uart_state_t uart1_write_byte(uint8_t data);
 uart_state_t uart1_write_data(const void *data_ptr, uint16_t size);
 uart_state_t uart2_init(void);
-uart_state_t uart2_check(void);
+uart_state_t uart2_tx_check(void);
 uart_state_t uart2_write_byte(uint8_t data);
 uart_state_t uart2_write_data(const void *data_ptr, uint16_t size);
 

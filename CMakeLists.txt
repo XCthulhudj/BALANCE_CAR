@@ -56,9 +56,11 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
     "Usr/Driver/OLED/oled_iic_4.c"
     "Usr/Driver/WS2812/ws2812_driver.c"
+    "Usr/Driver/MPU6050/mpu6050_iic.c"
 
     "Usr/Lib/Src/usr_delay.c"
     "Usr/Lib/Src/usr_queue.c"
+    "Usr/Lib/Src/usr_pid.c"
 
     "Usr/Task/Src/initTask.cpp"
     "Usr/Task/Src/serialTask.cpp"

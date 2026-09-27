@@ -26,6 +26,7 @@ usr_queue_state_t usr_queue_out(usr_queue_t *queue_ptr, uint8_t *dest);
 usr_queue_state_t usr_queue_in_array(usr_queue_t *queue_ptr, const uint8_t *arr_ptr, uint32_t size);
 usr_queue_state_t usr_queue_out_array(usr_queue_t *queue_ptr, uint8_t *arr_ptr, uint32_t size);
 usr_queue_state_t usr_queue_out_dump(usr_queue_t *queue_ptr, uint32_t size);
+usr_queue_state_t usr_queue_in_blank(usr_queue_t *queue_ptr, uint32_t size);
 
 #ifdef __cplusplus
 }

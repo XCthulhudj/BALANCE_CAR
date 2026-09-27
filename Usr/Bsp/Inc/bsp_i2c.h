@@ -8,14 +8,15 @@ extern "C" {
 
 #include "usr_queue.h"
 
-#define I2C1_QUEUE_SIZE 256
 #define I2C1_ADDRESS 0x78
+#define I2C1_TX_QUEUE_SIZE 256
 
 typedef enum{
     I2C_SUCCESS = 0,
     I2C_BUSY,
     I2C_IDLE,
-    I2C_WARNING_OVERLOAD
+    I2C_WARNING_OVERLOAD,
+    I2C_WARNING_EMPTY
 }i2c_state_t;
 
 typedef struct{
@@ -24,7 +25,13 @@ typedef struct{
     volatile uint16_t tx_width;
 }i2c_tx_t;
 
-i2c_state_t i2c1_check(void);
+typedef struct{
+    usr_queue_t queue;
+    volatile i2c_state_t state;
+    volatile uint16_t rx_width;
+}i2c_rx_t;
+
+i2c_state_t i2c1_tx_check(void);
 i2c_state_t i2c1_write_byte(uint8_t data);
 i2c_state_t i2c1_write_data(const void *data_ptr, uint16_t size);
 
