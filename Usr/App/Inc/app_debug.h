@@ -52,6 +52,8 @@ do{printf("[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);}while(
 
 #endif
 
+void app_debug_init(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -14,12 +14,13 @@ void serialTask(void *argument){
     (void)argument;
 
     const uint32_t delayTick = osKernelGetTickFreq() / TASK_FREQ_SERIAL;
+    app_debug_init();
     osDelay(TASK_INIT_DELAY_SERIAL);
     uint32_t tick = osKernelGetTickCount();
 
     while(1){
-        CHECK_STACK_AVAILABLE(serialTask);
-        CHECK_HEAP_AVAILABLE();
+        // CHECK_STACK_AVAILABLE(serialTask);
+        // CHECK_HEAP_AVAILABLE();
 
         tick += delayTick;
         osDelayUntil(tick);

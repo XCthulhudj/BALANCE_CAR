@@ -50,7 +50,7 @@ usr_queue_state_t usr_queue_out_array(usr_queue_t *queue_ptr, uint8_t *arr_ptr, 
     return QUEUE_OK;
 }
 
-usr_queue_state_t usr_queue_out_dump(usr_queue_t *queue_ptr, uint32_t size){
+usr_queue_state_t usr_queue_out_none(usr_queue_t *queue_ptr, uint32_t size){
     static uint8_t dump = 0;
     uint32_t i = 0;
     for(; i < size; i++){
@@ -60,7 +60,7 @@ usr_queue_state_t usr_queue_out_dump(usr_queue_t *queue_ptr, uint32_t size){
     return QUEUE_OK;
 }
 
-usr_queue_state_t usr_queue_in_blank(usr_queue_t *queue_ptr, uint32_t size){
+usr_queue_state_t usr_queue_in_none(usr_queue_t *queue_ptr, uint32_t size){
     uint32_t i;
     for(i = 0; i < size; i++){
         uint32_t index = (queue_ptr->tail + 1) % queue_ptr->size;

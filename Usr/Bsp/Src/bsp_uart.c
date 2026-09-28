@@ -1,6 +1,7 @@
 #include "bsp_uart.h"
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "stm32f1xx_hal.h"
 
@@ -13,16 +14,12 @@ extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 
 #define UART1_TX_BUFF_SIZE 256
-#define UART1_RX_BUFF_SIZE 256
 #define UART2_TX_BUFF_SIZE 256
-#define UART2_RX_BUFF_SIZE 256
 
 static uint8_t uart1_queue_tx_buff[UART1_TX_BUFF_SIZE];
-static uint8_t uart1_rx_buff[UART1_RX_BUFF_SIZE];
 static uint8_t uart2_queue_tx_buff[UART2_TX_BUFF_SIZE];
-static uint8_t uart2_rx_buff[UART2_RX_BUFF_SIZE];
 
-uart_tx_t uart1_tx = {
+static uart_tx_t uart1_tx = {
     .queue = {
         .head = 0,
         .tail = 0,
@@ -34,15 +31,7 @@ uart_tx_t uart1_tx = {
     .tx_width = 0
 };
 
-uart_rx_t uart1_rx = {
-    .parser = NULL,
-    .rx_buf = uart1_rx_buff,
-    .rx_len = 1,
-    .rx_buf_size = UART1_RX_BUFF_SIZE,
-    .frame_ready = 0
-};
-
-uart_tx_t uart2_tx = {
+static uart_tx_t uart2_tx = {
     .queue = {
         .head = 0,
         .tail = 0,
@@ -54,42 +43,23 @@ uart_tx_t uart2_tx = {
     .tx_width = 0
 };
 
-uart_rx_t uart2_rx = {
-    .parser = NULL,
-    .rx_buf = uart2_rx_buff,
-    .rx_len = 1,
-    .rx_buf_size = UART2_RX_BUFF_SIZE,
-    .frame_ready = 0
+static uart_rx_t uart1_rx = {
+    .irq_parser = NULL,
+    .buff_ptr = NULL,
+    .size = 0
+};
+
+static uart_rx_t uart2_rx = {
+    .irq_parser = NULL,
+    .buff_ptr = NULL,
+    .size = 0
 };
 
 static void uart1_tx_start(uint16_t size);
 static void uart2_tx_start(uint16_t size);
 
-uart_state_t uart1_init(void){
-    /* First, enable the receive interrupt */
-    __HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
-    /* Enable the idle interrupt */
-    __HAL_UART_CLEAR_IDLEFLAG(&huart1);
-    __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
-    return UART_SUCCESS;
-}
-
-uart_state_t uart1_tx_check(void){
-    uart_state_t ret = UART_BUSY;
-    usr_queue_out_dump(&uart1_tx.queue, uart1_tx.tx_width);
-    if(uart1_tx.queue.usedSize == 0){
-        uart1_tx.tx_width = 0;
-        uart1_tx.state = UART_IDLE;
-        ret = UART_IDLE;
-    }else{
-        uart1_tx.tx_width = uart1_tx.queue.usedSize;
-        uart1_tx_start(uart1_tx.tx_width);
-    }
-    return ret;
-}
-
 uart_state_t uart1_write_byte(uint8_t data){
-    uart_state_t ret = UART_SUCCESS;
+    uart_state_t ret = UART_OK;
     if(usr_queue_in(&uart1_tx.queue, &data) == QUEUE_OVERLOAD)
         ret = UART_WARNING_OVERLOAD;
 
@@ -102,7 +72,7 @@ uart_state_t uart1_write_byte(uint8_t data){
 }
 
 uart_state_t uart1_write_data(const void *data_ptr, uint16_t size){
-    uart_state_t ret = UART_SUCCESS;
+    uart_state_t ret = UART_OK;
     uint16_t tx_width_tmp = 0;
     if(usr_queue_in_array(&uart1_tx.queue, (const uint8_t*)data_ptr, size) == QUEUE_OVERLOAD){
         ret = UART_WARNING_OVERLOAD;
@@ -117,28 +87,40 @@ uart_state_t uart1_write_data(const void *data_ptr, uint16_t size){
     return ret;
 }
 
-uart_state_t uart2_init(void){
-    //
-    return UART_SUCCESS;
-}
-
-uart_state_t uart2_tx_check(void){
+uart_state_t uart1_tx_handler(void){
     uart_state_t ret = UART_BUSY;
-    usr_queue_out_dump(&uart2_tx.queue, uart2_tx.tx_width);
-    if(uart2_tx.queue.usedSize == 0){
-        uart2_tx.tx_width = 0;
-        uart2_tx.state = UART_IDLE;
+    usr_queue_out_none(&uart1_tx.queue, uart1_tx.tx_width);
+    if(uart1_tx.queue.usedSize == 0){
+        uart1_tx.tx_width = 0;
+        uart1_tx.state = UART_IDLE;
         ret = UART_IDLE;
-    }
-    else{
-        uart2_tx.tx_width = uart2_tx.queue.usedSize;
-        uart2_tx_start(uart2_tx.tx_width);
+    }else{
+        uart1_tx.tx_width = uart1_tx.queue.usedSize;
+        uart1_tx_start(uart1_tx.tx_width);
     }
     return ret;
 }
 
+uart_state_t uart1_read_start(void){
+    HAL_UART_Receive_IT(&huart1, uart1_rx.buff_ptr, uart1_rx.size);
+    return UART_OK;
+}
+
+uart_state_t uart1_rx_hook_register(uart_event_hook_t func, uint8_t *buff_ptr, uint16_t size){
+    uart1_rx.irq_parser = func;
+    uart1_rx.buff_ptr = buff_ptr;
+    uart1_rx.size = size;
+    HAL_UART_Receive_IT(&huart1, uart1_rx.buff_ptr, uart1_rx.size);
+    return UART_OK;
+}
+
+uart_state_t uart1_rx_handler(void){
+    uart1_rx.irq_parser(NULL);
+    return UART_OK;
+}
+
 uart_state_t uart2_write_byte(uint8_t data){
-    uart_state_t ret = UART_SUCCESS;
+    uart_state_t ret = UART_OK;
     if(usr_queue_in(&uart2_tx.queue, &data) == QUEUE_OVERLOAD)
         ret = UART_WARNING_OVERLOAD;
 
@@ -151,7 +133,7 @@ uart_state_t uart2_write_byte(uint8_t data){
 }
 
 uart_state_t uart2_write_data(const void *data_ptr, uint16_t size){
-    uart_state_t ret = UART_SUCCESS;
+    uart_state_t ret = UART_OK;
     uint16_t tx_width_tmp = 0;
     if(usr_queue_in_array(&uart2_tx.queue, (const uint8_t*)data_ptr, size) == QUEUE_OVERLOAD){
         ret = UART_WARNING_OVERLOAD;
@@ -164,6 +146,39 @@ uart_state_t uart2_write_data(const void *data_ptr, uint16_t size){
         uart2_tx_start(uart2_tx.tx_width);
     }
     return ret;
+}
+
+uart_state_t uart2_tx_handler(void){
+    uart_state_t ret = UART_BUSY;
+    usr_queue_out_none(&uart2_tx.queue, uart2_tx.tx_width);
+    if(uart2_tx.queue.usedSize == 0){
+        uart2_tx.tx_width = 0;
+        uart2_tx.state = UART_IDLE;
+        ret = UART_IDLE;
+    }
+    else{
+        uart2_tx.tx_width = uart2_tx.queue.usedSize;
+        uart2_tx_start(uart2_tx.tx_width);
+    }
+    return ret;
+}
+
+uart_state_t uart2_read_start(void){
+    HAL_UART_Receive_IT(&huart2, uart2_rx.buff_ptr, uart2_rx.size);
+    return UART_OK;
+}
+
+uart_state_t uart2_rx_hook_register(uart_event_hook_t func, uint8_t *buff_ptr, uint16_t size){
+    uart2_rx.irq_parser = func;
+    uart2_rx.buff_ptr = buff_ptr;
+    uart2_rx.size = size;
+    HAL_UART_Receive_IT(&huart2, uart2_rx.buff_ptr, uart2_rx.size);
+    return UART_OK;
+}
+
+uart_state_t uart2_rx_handler(void){
+    uart2_rx.irq_parser(NULL);
+    return UART_OK;
 }
 
 static void uart1_tx_start(uint16_t size){

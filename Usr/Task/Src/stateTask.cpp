@@ -14,7 +14,7 @@ void stateTask(void *argument){
 
     ws2812_start();
     while(1){
-        CHECK_STACK_AVAILABLE(stateTask);
+        // CHECK_STACK_AVAILABLE(stateTask);
         ws2812_run();
 
         tick += delayTick;

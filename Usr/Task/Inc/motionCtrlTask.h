@@ -9,6 +9,8 @@ extern "C" {
 #include "struct_typedef.h"
 
 #include "mpu6050_iic.h"
+#include "rc.h"
+#include "usr_pid.h"
 
 typedef enum{
     MOTION_OK = 0,
@@ -29,6 +31,8 @@ typedef struct{
 
 typedef struct{
     imu_t imu;
+    pid_t pid;
+    rc_t *rc;
 }motion_t;
 
 #ifdef __cplusplus

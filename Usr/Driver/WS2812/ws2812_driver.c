@@ -226,7 +226,7 @@ ws2812_state_t ws2812_rainbow(uint16_t delay_ms){
   * @retval None
   */
 static void ws2812_load(void){
-	HAL_TIM_PWM_Start_DMA(&ws2812_htim, WS2812_TIM_CHANNEL, (uint32_t *)data_buf, DATA_LEN);
+  HAL_TIM_PWM_Start_DMA(&ws2812_htim, WS2812_TIM_CHANNEL, (uint32_t *)data_buf, DATA_LEN);
 }
 
 /**

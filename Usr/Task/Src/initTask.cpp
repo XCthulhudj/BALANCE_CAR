@@ -5,7 +5,6 @@
 #include "task.h"
 
 #include "stm32f1xx_hal.h"
-#include "iwdg.h"
 
 #include "usr_config.h"
 #include "struct_typedef.h"
@@ -29,9 +28,4 @@ void initTask(void *argument){
 
   osKernelUnlock();
   osThreadTerminate(osThreadGetId());
-  // while(1){
-  //   HAL_IWDG_Refresh(&hiwdg);
-
-  //   osDelay(20);
-  // }
 }
