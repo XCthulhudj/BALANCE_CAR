@@ -18,7 +18,8 @@ typedef enum{
     I2C_TIMEOUT,
     I2C_IDLE,
     I2C_WARNING_OVERLOAD,
-    I2C_WARNING_EMPTY
+    I2C_WARNING_EMPTY,
+    I2C_WARNING_NULL
 }i2c_state_t;
 
 typedef void (*i2c_event_hook_t)(void *arg);
@@ -40,9 +41,11 @@ i2c_state_t i2c1_write_data(const void *data_ptr, uint16_t size);
 i2c_state_t i2c1_tx_handler(void);
 
 i2c_state_t i2c2_write_byte_memAddSize_8bit(uint16_t mem_address, uint8_t data);
+i2c_state_t i2c2_write_data_memAddSize_8bit(uint16_t mem_address, uint16_t size, uint8_t *data_ptr);
 i2c_state_t i2c2_read_start_memAddSize_8bit(uint16_t mem_address, uint16_t size);
-i2c_state_t i2c2_hook_register(i2c_event_hook_t func, uint8_t *buff, uint8_t dev_id);
-i2c_state_t i2c2_rx_handler(void);
+i2c_state_t i2c2_read_clear_flag_memAddSize_8bit(uint16_t mem_address);
+i2c_state_t i2c2_hook_register(i2c_event_hook_t func_parser, uint8_t *buff_ptr, uint8_t dev_id);
+i2c_state_t i2c2_rx_parser_handler(void);
 
 #ifdef __cplusplus
 }

@@ -6,6 +6,8 @@ extern "C"{
 
 #include <stdint.h>
 
+#include "usr_fusion.h"
+
 #define MPU6050_DATA_BUFF 14
 
 typedef enum{
@@ -13,14 +15,19 @@ typedef enum{
 }mpu6050_state_t;
 
 typedef struct{
-    int16_t acc_x;
-    int16_t acc_y;
-    int16_t acc_z;
-    int16_t temperature;
-    int16_t gyro_x;
-    int16_t gyro_y;
-    int16_t gyro_z;
+    struct{
+        int16_t acc_x;
+        int16_t acc_y;
+        int16_t acc_z;
+        int16_t temperature;
+        int16_t gyro_x;
+        int16_t gyro_y;
+        int16_t gyro_z;
+    }raw;
+    float temperature;
     uint8_t rawData[MPU6050_DATA_BUFF];
+    fusion_t fusion_data;
+    volatile uint8_t rx_sig;
 }mpu6050_data_t;
 
 mpu6050_data_t* mpu6050_init(void);

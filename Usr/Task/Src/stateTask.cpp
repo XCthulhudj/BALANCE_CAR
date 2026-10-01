@@ -12,10 +12,10 @@ void stateTask(void *argument){
     osDelay(TASK_INIT_DELAY_STATE);
     uint32_t tick = osKernelGetTickCount();
 
-    ws2812_start();
+    // ws2812_start();
     while(1){
         // CHECK_STACK_AVAILABLE(stateTask);
-        ws2812_run();
+        // ws2812_run();
 
         tick += delayTick;
         osDelayUntil(tick);

@@ -57,14 +57,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     "Usr/Driver/OLED/oled_iic_4.c"
     "Usr/Driver/WS2812/ws2812_driver.c"
     "Usr/Driver/MPU6050/mpu6050_iic.c"
-    "Usr/Driver/MPU6050/DMP/inv_mpu.c"
-    "Usr/Driver/MPU6050/DMP/inv_mpu_dmp_motion_driver.c"
     "Usr/Driver/HC_SR04/hc_sr04.c"
     "Usr/Driver/Motor520/motor520.c"
 
     "Usr/Lib/Src/usr_delay.c"
     "Usr/Lib/Src/usr_queue.c"
     "Usr/Lib/Src/usr_pid.c"
+    "Usr/Lib/Src/usr_fusion.c"
 
     "Usr/Task/Src/initTask.cpp"
     "Usr/Task/Src/serialTask.cpp"
@@ -83,7 +82,6 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
     "Usr/Driver/HC_SR04"
     "Usr/Driver/MPU6050"
-    "Usr/Driver/MPU6050/DMP"
     "Usr/Driver/OLED"
     "Usr/Driver/WS2812"
 

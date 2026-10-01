@@ -11,6 +11,7 @@ extern "C" {
 #include "mpu6050_iic.h"
 #include "rc.h"
 #include "usr_pid.h"
+#include "hc_sr04.h"
 
 typedef enum{
     MOTION_OK = 0,
@@ -19,20 +20,10 @@ typedef enum{
 }motion_state_t;
 
 typedef struct{
-    mpu6050_data_t *raw;
-    fp32 acc_x;
-    fp32 acc_y;
-    fp32 acc_z;
-    fp32 gyro_x;
-    fp32 gyro_y;
-    fp32 gyro_z;
-    fp32 temperature;
-}imu_t;
-
-typedef struct{
-    imu_t imu;
     pid_t pid;
-    rc_t *rc;
+    mpu6050_data_t *imu_ptr;
+    rc_t *rc_ptr;
+    hc_sr04_t *hc_sr04_ptr;
 }motion_t;
 
 #ifdef __cplusplus

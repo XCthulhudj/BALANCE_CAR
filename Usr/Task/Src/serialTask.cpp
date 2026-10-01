@@ -8,7 +8,6 @@
 #include "usr_config.h"
 #include "app_debug.h"
 #include "usr_delay.h"
-#include "mpu6050_iic.h"
 
 void serialTask(void *argument){
     (void)argument;

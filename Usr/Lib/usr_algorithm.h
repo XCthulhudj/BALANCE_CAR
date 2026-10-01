@@ -40,8 +40,10 @@ extern "C" {
 #define FLOAT_MAX_VALUE             3.402823466e+38f
 #define FLOAT_MIN_VALUE             1.175494351e-38f
 
+#define SQUARE(x) ((x) * (x))
+
 // 数学运算结果结构
-typedef struct {
+typedef struct{
     float value;
     int error_code;
     bool is_valid;
@@ -49,21 +51,21 @@ typedef struct {
 } math_result_t;
 
 // 向量运算结构
-typedef struct {
+typedef struct{
     float x;
     float y;
     float z;
 } vector3d_t;
 
 // 矩阵运算结构
-typedef struct {
+typedef struct{
     float data[3][3];
     uint8_t rows;
     uint8_t cols;
 } matrix3x3_t;
 
 // 四元数结构
-typedef struct {
+typedef struct{
     float w;
     float x;
     float y;
