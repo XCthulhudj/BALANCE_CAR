@@ -24,10 +24,18 @@ typedef struct{
         int16_t gyro_y;
         int16_t gyro_z;
     }raw;
+    struct{
+        float gyro_x;
+        float gyro_y;
+        float gyro_z;
+        int32_t sum[3];
+        uint32_t cnt;
+    }cali;
     float temperature;
     uint8_t rawData[MPU6050_DATA_BUFF];
     fusion_t fusion_data;
     volatile uint8_t rx_sig;
+    volatile uint8_t cali_sig;
 }mpu6050_data_t;
 
 mpu6050_data_t* mpu6050_init(void);

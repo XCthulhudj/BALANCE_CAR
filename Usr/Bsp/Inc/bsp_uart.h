@@ -15,6 +15,7 @@ typedef enum{
     UART_TIMEOUT,
     UART_IDLE,
     UART_WARNING_OVERLOAD,
+    UART_WARNING_NULL
 }uart_state_t;
 
 typedef void (*uart_event_hook_t)(void *arg);

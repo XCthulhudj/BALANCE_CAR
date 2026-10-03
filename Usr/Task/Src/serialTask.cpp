@@ -1,9 +1,9 @@
 #include "serialTask.h"
 
 #include <cmsis_os2.h>
-#include <cstdint>
 #include "FreeRTOS.h"
-#include "task.h"
+
+#include "main.h"
 
 #include "usr_config.h"
 #include "app_debug.h"
@@ -13,7 +13,7 @@ void serialTask(void *argument){
     (void)argument;
 
     const uint32_t delayTick = osKernelGetTickFreq() / TASK_FREQ_SERIAL;
-    app_debug_init();
+    
     osDelay(TASK_INIT_DELAY_SERIAL);
     uint32_t tick = osKernelGetTickCount();
 

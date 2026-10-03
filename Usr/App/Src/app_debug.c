@@ -6,31 +6,26 @@
 
 #include "app_config.h"
 
-#include "stm32f1xx_hal.h"
-extern TIM_HandleTypeDef htim1;
-
-#define APP_DEBUG_RX_BUFF_SIZE 1
-
-static uint8_t app_debug_rx_buff[APP_DEBUG_RX_BUFF_SIZE];
+app_debug_t app_debug;
 
 static void app_debug_parser(void *arg);
 
-void app_debug_init(void){
+app_debug_t* app_debug_init(void){
 #ifdef DEBUG
-    serial_debug_rx_hook_register(app_debug_parser, app_debug_rx_buff);
+    serial_debug_rx_hook_register(app_debug_parser, app_debug.rx_buff);
 #endif
+return &app_debug;
 }
 
 static void app_debug_parser(void *arg){
     (void)arg;
-    if(app_debug_rx_buff[0] == 'a'){
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 3000);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 3000);
-    }else if(app_debug_rx_buff[0] == 'z'){
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0);
+    /* Test module */
+    if(app_debug.rx_buff[0] == 'a'){
+        app_debug.flag = 1;
+    }else if(app_debug.rx_buff[0] == 'z'){
+        app_debug.flag = 0;
     }
-    serial_debug_tx_data(app_debug_rx_buff);
+    serial_debug_tx_data(app_debug.rx_buff);
     serial_debug_read_start();
 }
 

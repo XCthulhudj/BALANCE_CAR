@@ -13,6 +13,17 @@ typedef enum{
     MOTOR520_TIMEOUT
 }motor520_state_t;
 
+typedef struct{
+    volatile int32_t cn1_enc;
+    volatile int32_t cn2_enc;
+    int32_t cn1_set;
+    int32_t cn2_set;
+}motor520_t;
+
+motor520_t* motor520_init(void);
+motor520_state_t motor520_update(void);
+motor520_state_t motor520_rpm_load(void);
+
 #ifdef __cplusplus
 }
 #endif

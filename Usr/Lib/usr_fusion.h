@@ -28,6 +28,8 @@ typedef struct{
 }fusion_t;
 
 void usr_fusion_imu_update(fusion_t *fusion_data);
+void usr_coordinate_rotation_internal(float q_in[4], float q_out[4], float euler_out[3], float rx, float ry, float rz, float rTheta);
+void usr_rq_vector(float vec_in[3], float vec_out[3], float rx, float ry, float rz, float rTheta);
 
 #ifdef __cplusplus
 }

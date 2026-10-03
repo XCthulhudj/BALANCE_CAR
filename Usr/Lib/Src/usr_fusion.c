@@ -31,6 +31,9 @@ static inline float invSqrt(float x){
     return y;
 }
 
+static void usr_q_mul(float q1[4], float q2[4], float res[4]);
+static void usr_q_2_euler(float q[4], float euler[3]);
+
 void usr_fusion_imu_update(fusion_t *fusion_data){
     // 单位转换
     fusion_data->acc_x = (float)fusion_data->raw.ax * Acc_Gain * G;
@@ -122,4 +125,145 @@ void usr_fusion_imu_update(fusion_t *fusion_data){
     fusion_data->roll  = fast_atan2f(2.0f * (q2q3 + q0q1), q0q0 - q1q1 - q2q2 + q3q3) * 57.3f;
     fusion_data->pitch = -asin(2.0f * (q1q3 - q0q2)) * 57.3f;
     fusion_data->yaw   = fast_atan2f(2.0f * (q1q2 + q0q3), q0q0 + q1q1 - q2q2 - q3q3) * 57.3f;
+}
+
+void usr_coordinate_rotation_internal(float q_in[4],
+                                      float q_out[4],
+                                      float euler_out[3],
+                                      float rx, float ry, float rz,
+                                      float rTheta_deg)
+{
+    /* --- 输入四元数归一化 --- */
+    float q_old[4];
+    float n = sqrtf(q_in[0]*q_in[0] + q_in[1]*q_in[1]
+                  + q_in[2]*q_in[2] + q_in[3]*q_in[3]);
+    if (n < 1e-12f) {
+        q_out[0] = 1.0f; q_out[1] = q_out[2] = q_out[3] = 0.0f;
+        if (euler_out) { euler_out[0] = euler_out[1] = euler_out[2] = 0.0f; }
+        return;
+    }
+    q_old[0] = q_in[0] / n;
+    q_old[1] = q_in[1] / n;
+    q_old[2] = q_in[2] / n;
+    q_old[3] = q_in[3] / n;
+
+    /* --- 旋转轴归一化 --- */
+    float axis_sq = rx*rx + ry*ry + rz*rz;
+    if (axis_sq < 1e-12f) {
+        q_out[0] = q_old[0]; q_out[1] = q_old[1];
+        q_out[2] = q_old[2]; q_out[3] = q_old[3];
+        if (euler_out) usr_q_2_euler(q_out, euler_out);
+        return;
+    }
+    float inv_axis = 1.0f / sqrtf(axis_sq);
+    rx *= inv_axis; ry *= inv_axis; rz *= inv_axis;
+
+    /* --- 构造旋转四元数 q_rot --- */
+    float half_rad = rTheta_deg * 0.5f * (float)M_PI / 180.0f;
+    float s = sinf(half_rad);
+    float c = cosf(half_rad);
+    float q_rot[4] = { c, rx * s, ry * s, rz * s };
+
+    /* --- 关键：右乘，做坐标系变换 --- */
+    /* q_out = q_in * q_rot */
+    usr_q_mul(q_old, q_rot, q_out);
+
+    /* --- 归一化 --- */
+    n = sqrtf(q_out[0]*q_out[0] + q_out[1]*q_out[1]
+            + q_out[2]*q_out[2] + q_out[3]*q_out[3]);
+    if (n > 1e-12f) {
+        q_out[0] /= n; q_out[1] /= n; q_out[2] /= n; q_out[3] /= n;
+    }
+
+    if (euler_out) usr_q_2_euler(q_out, euler_out);
+}
+
+void usr_rq_vector(float vec_in[3],
+                   float vec_out[3],
+                   float rx, float ry, float rz,
+                   float rTheta_deg)
+{
+    float vx = vec_in[0];
+    float vy = vec_in[1];
+    float vz = vec_in[2];
+
+    float axis_sq = rx*rx + ry*ry + rz*rz;
+    if (axis_sq < 1e-12f) {
+        vec_out[0] = vx;
+        vec_out[1] = vy;
+        vec_out[2] = vz;
+        return;
+    }
+
+    float inv_axis = 1.0f / sqrtf(axis_sq);
+    rx *= inv_axis;
+    ry *= inv_axis;
+    rz *= inv_axis;
+
+    float half_rad = rTheta_deg * 0.5f * (float)M_PI / 180.0f;
+
+    /* 同样先用标准 sinf/cosf，确认不是 fast 函数问题 */
+    float s = sinf(half_rad);
+    float c = cosf(half_rad);
+
+    float qw = c;
+    float qx = rx * s;
+    float qy = ry * s;
+    float qz = rz * s;
+
+    /* 归一化旋转四元数 */
+    float n = sqrtf(qw*qw + qx*qx + qy*qy + qz*qz);
+    if (n < 1e-12f) {
+        vec_out[0] = vx;
+        vec_out[1] = vy;
+        vec_out[2] = vz;
+        return;
+    }
+    qw /= n;
+    qx /= n;
+    qy /= n;
+    qz /= n;
+
+    /*
+     * v_out = q * v_in * q^-1
+     * t = 2 * (q_vec × v)
+     * v_out = v + qw * t + q_vec × t
+     */
+    float tx = 2.0f * (qy * vz - qz * vy);
+    float ty = 2.0f * (qz * vx - qx * vz);
+    float tz = 2.0f * (qx * vy - qy * vx);
+
+    vec_out[0] = vx + qw * tx + (qy * tz - qz * ty);
+    vec_out[1] = vy + qw * ty + (qz * tx - qx * tz);
+    vec_out[2] = vz + qw * tz + (qx * ty - qy * tx);
+}
+
+static void usr_q_mul(float q1[4], float q2[4], float res[4]){
+    float q[4] = {0};
+    q[0] = q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3];
+    q[1] = q1[0]*q2[1] + q1[1]*q2[0] + q1[2]*q2[3] - q1[3]*q2[2];
+    q[2] = q1[0]*q2[2] - q1[1]*q2[3] + q1[2]*q2[0] + q1[3]*q2[1];
+    q[3] = q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1] + q1[3]*q2[0];
+
+    res[0] = q[0];
+    res[1] = q[1];
+    res[2] = q[2];
+    res[3] = q[3];
+}
+
+static void usr_q_2_euler(float q[4], float euler[3]){
+    float q0q0 = SQUARE(q[0]);
+    float q0q1 = q[0] * q[1];
+    float q0q2 = q[0] * q[2];
+    float q0q3 = q[0] * q[3];
+    float q1q1 = SQUARE(q[1]);
+    float q1q2 = q[1] * q[2];
+    float q1q3 = q[1] * q[3];
+    float q2q2 = SQUARE(q[2]);
+    float q2q3 = q[2] * q[3];
+    float q3q3 = SQUARE(q[3]);
+
+    euler[0] = fast_atan2f(2.0f * (q2q3 + q0q1), q0q0 - q1q1 - q2q2 + q3q3) * 57.3f;
+    euler[1] = -asin(2.0f * (q1q3 - q0q2)) * 57.3f;
+    euler[2] = fast_atan2f(2.0f * (q1q2 + q0q3), q0q0 + q1q1 - q2q2 - q3q3) * 57.3f;
 }

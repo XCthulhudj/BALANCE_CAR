@@ -49,6 +49,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
     "Usr/App/Src/rc.c"
     "Usr/App/Src/app_debug.c"
+    "Usr/App/Src/attitude.c"
 
     "Usr/Bsp/Src/bsp_it.c"
     "Usr/Bsp/Src/bsp_uart.c"
@@ -84,6 +85,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     "Usr/Driver/MPU6050"
     "Usr/Driver/OLED"
     "Usr/Driver/WS2812"
+    "Usr/Driver/Motor520"
 
     "Usr/Lib"
 
@@ -104,4 +106,12 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
 
     # Add user defined libraries
+)
+
+# 生成 .hex 文件
+add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O ihex
+    $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
+    ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex
+    COMMENT "Building ${CMAKE_PROJECT_NAME}.hex"
 )

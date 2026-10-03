@@ -7,8 +7,8 @@
 #include "usr_delay.h"
 #include "bsp_it.h"
 
-static void hc_sr04_trigger(void);
-static void hc_sr04_echo(void);
+static hc_sr04_state_t hc_sr04_trigger(void);
+static hc_sr04_state_t hc_sr04_echo(void);
 static void hc_sr04_echo_irq(void *arg);
 
 static hc_sr04_t hc_sr04 = {
@@ -27,13 +27,14 @@ hc_sr04_t* hc_sr04_init(void){
     return &hc_sr04;
 }
 
-static void hc_sr04_trigger(void){
+static hc_sr04_state_t hc_sr04_trigger(void){
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
     delay_us_blocking(12);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+    return HC_SR04_OK;
 }
 
-static void hc_sr04_echo(void){
+static hc_sr04_state_t hc_sr04_echo(void){
     if(hc_sr04.echo.done_sig == 1){
         hc_sr04.echo.done_sig = 0;
         float us = (float)hc_sr04.echo.period / (SYSTEM_CLOCK / 1000000.0f);
@@ -42,8 +43,10 @@ static void hc_sr04_echo(void){
             hc_sr04.distance = us * 0.017f;
         } else {
             hc_sr04.distance = -1.0f;  // 标记无效
+            return HC_SR04_INVALID;
         }
     }
+    return HC_SR04_OK;
 }
 
 static void hc_sr04_echo_irq(void *arg){

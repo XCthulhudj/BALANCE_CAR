@@ -115,6 +115,7 @@ uart_state_t uart1_rx_hook_register(uart_event_hook_t func, uint8_t *buff_ptr, u
 }
 
 uart_state_t uart1_rx_handler(void){
+    if(uart1_rx.irq_parser == NULL) return UART_WARNING_NULL;
     uart1_rx.irq_parser(NULL);
     return UART_OK;
 }
@@ -177,6 +178,7 @@ uart_state_t uart2_rx_hook_register(uart_event_hook_t func, uint8_t *buff_ptr, u
 }
 
 uart_state_t uart2_rx_handler(void){
+    if(uart2_rx.irq_parser == NULL) return UART_WARNING_NULL;
     uart2_rx.irq_parser(NULL);
     return UART_OK;
 }

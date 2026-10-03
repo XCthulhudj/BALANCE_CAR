@@ -10,7 +10,8 @@ typedef enum{
     HC_SR04_OK = 0,
     HC_SR04_ERROR,
     HC_SR04_BUSY,
-    HC_SR04_TIMEOUT
+    HC_SR04_TIMEOUT,
+    HC_SR04_INVALID
 }hc_sr04_state_t;
 
 typedef struct{
@@ -22,8 +23,8 @@ typedef struct{
 
     float distance; //cm
 
-    void (*trigger_func)(void);
-    void (*echo_func)(void);
+    hc_sr04_state_t (*trigger_func)(void);
+    hc_sr04_state_t (*echo_func)(void);
 }hc_sr04_t;
 
 hc_sr04_t* hc_sr04_init(void);

@@ -29,6 +29,10 @@ extern "C" {
     #define M_E                     2.71828182845904523536
 #endif
 
+#ifndef ABS
+    #define ABS(x)                  ((x) < 0 ? -(x) : (x))
+#endif
+
 #define FLOAT_EPSILON               1e-6f
 #define DOUBLE_EPSILON              1e-12
 

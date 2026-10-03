@@ -52,7 +52,12 @@ do{printf("[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);}while(
 
 #endif
 
-void app_debug_init(void);
+typedef struct{
+    uint8_t rx_buff[1];
+    uint8_t flag;
+}app_debug_t;
+
+app_debug_t* app_debug_init(void);
 
 #ifdef __cplusplus
 }
