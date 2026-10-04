@@ -1,428 +1,534 @@
-# BALANCE_CAR
+# Balance Car HAL Project
 
-基于 **STM32F103C8T6** 的两轮平衡车控制项目，使用 **STM32 HAL + FreeRTOS（CMSIS-RTOS v2）** 构建，工程同时包含 C 与 C++ 源文件。
+基于 **STM32F103C8T6** 的两轮自平衡小车控制工程，采用 **STM32 HAL + FreeRTOS/CMSIS-RTOS2** 架构开发。
 
-项目目前以“**底层驱动 + 实时任务框架 + 姿态数据采集 + 调试通信**”为主，正在逐步完善电机控制、编码器闭环和完整平衡控制逻辑。
+当前工程已经包含：
 
----
-
-## 1. 项目特点
-
-- STM32F103C8T6，系统时钟 72 MHz
-- STM32 HAL 驱动框架
-- FreeRTOS + CMSIS-RTOS v2
-- C / C++ 混合开发
-- MPU6050 六轴 IMU
-  - I2C2 通信
-  - DMA 接收 14 字节原始数据
-  - 加速度、角速度、温度解析
-  - 四元数姿态解算
+- MPU6050 六轴 IMU 数据采集与姿态融合
+- 四元数姿态解算与坐标系旋转
+- 双直流减速电机 PWM + 正交编码器反馈
+- 速度环 + 姿态环 + 转向环三级控制
 - HC-SR04 超声波测距
-  - GPIO + EXTI 双边沿捕获
-  - DWT 周期计时
-- OLED 128×64
-  - I2C1
-  - DMA 发送队列
-- 双串口通信
-  - USART1：调试 / VOFA 数据输出
-  - USART2：蓝牙遥控数据接收
-- PWM 电机驱动接口
-  - TIM1 CH1 / CH4
-  - 4 路方向控制 GPIO
-- TIM3 / TIM4 编码器接口已在 CubeMX 中配置
-- WS2812 驱动
-  - PWM + DMA
-  - RGB、流水、闪烁、渐变、彩虹效果
-- PID 控制器
-  - 位置式 PID
-  - 增量式 PID
-  - 输出限幅与积分限幅
-- 环形队列 / DMA 通信基础设施
-- 独立的 BSP / Driver / Lib / Task 分层结构
+- 0.96 英寸 SSD1306 OLED
+- 3 颗 WS2812 RGB LED
+- USART1 调试串口
+- USART2 蓝牙遥控输入
+- FreeRTOS 多任务调度
+- UART / I2C DMA + 软件队列
+- 独立看门狗
 - CMake + Ninja + arm-none-eabi-gcc 构建
 
+> 项目定位：个人两轮自平衡机器人控制工程，重点用于 STM32 嵌入式开发、FreeRTOS 任务设计、传感器驱动、姿态融合和闭环控制算法学习与实践。
+
 ---
 
-## 2. 软件架构
+## 1. Hardware
+
+### MCU
+
+| 项目 | 参数 |
+|---|---|
+| MCU | STM32F103C8T6 |
+| 内核 | ARM Cortex-M3 |
+| 主频 | 72 MHz |
+| 封装 | LQFP48 |
+| 工程框架 | STM32 HAL |
+| RTOS | FreeRTOS / CMSIS-RTOS2 |
+
+### 外设
+
+| 模块 | 用途 | STM32 外设 / 引脚 |
+|---|---|---|
+| MPU6050 | 加速度、角速度采集 | I2C2：PB10/PB11 |
+| MPU6050 INT | 数据就绪中断 | PB5 / EXTI |
+| OLED SSD1306 | 状态显示 | I2C1：PB8/PB9 |
+| 电机 1 PWM | 电机驱动 | TIM1 CH4 |
+| 电机 2 PWM | 电机驱动 | TIM1 CH1 |
+| 电机 1 编码器 | 速度反馈 | TIM3 |
+| 电机 2 编码器 | 速度反馈 | TIM4 |
+| HC-SR04 TRIG | 超声波触发 | PA0 |
+| HC-SR04 ECHO | 超声波回波 | PA1 / EXTI1 |
+| WS2812 | 状态指示 | TIM3 CH3 |
+| 调试串口 | 调试 / VOFA 数据 | USART1，115200 |
+| 蓝牙串口 | 遥控输入 | USART2，115200 |
+| ADC | 模拟量采集接口 | ADC1_IN4 / PA4 |
+| 独立看门狗 | 系统异常恢复 | IWDG |
+
+### 电机驱动
+
+工程中的 `motor520` 驱动负责：
+
+- TIM1 输出两路 PWM
+- TIM3 / TIM4 工作在编码器模式
+- 读取两个电机的增量编码器计数
+- 根据正负方向控制 H 桥方向引脚
+- 输出 0～7200 的 PWM 比较值
+
+对应关系：
 
 ```text
-                    +----------------------+
-                    |      FreeRTOS        |
-                    |   CMSIS-RTOS v2      |
-                    +----------+-----------+
-                               |
-        +----------------------+----------------------+
-        |                      |                      |
-        v                      v                      v
-+---------------+      +---------------+      +---------------+
-|  serialTask   |      | motionCtrlTask|      |   stateTask   |
-|  调试/通信     |      | 运动控制框架   |      | 状态机框架     |
-+-------+-------+      +-------+-------+      +-------+-------+
-        |                      |                      |
-        v                      v                      v
-+--------------------------------------------------------------+
-|                         Application                           |
-|    app_debug / rc / task config / control logic              |
-+--------------------------------------------------------------+
-                               |
-                               v
-+--------------------------------------------------------------+
-|                           Driver                             |
-| MPU6050 | HC-SR04 | OLED | WS2812 | Motor520               |
-+--------------------------------------------------------------+
-                               |
-                               v
-+--------------------------------------------------------------+
-|                            BSP                               |
-|           UART / I2C / Interrupt / Queue                    |
-+--------------------------------------------------------------+
-                               |
-                               v
-+--------------------------------------------------------------+
-|                 STM32 HAL + FreeRTOS Kernel                  |
-+--------------------------------------------------------------+
+TIM1 CH4 -> 电机 1 PWM
+TIM1 CH1 -> 电机 2 PWM
+
+TIM3 -> 电机 1 编码器
+TIM4 -> 电机 2 编码器
 ```
 
 ---
 
-## 3. 任务设计
+## 2. Software Architecture
 
-项目通过一个一次性的 `initTask` 创建应用任务、消息队列和事件标志。
+工程采用分层结构：
 
-| 任务 | 频率 | 初始延时 | 栈大小 |
+```text
+Application
+├── Task
+│   ├── initTask
+│   ├── motionCtrlTask
+│   ├── serialTask
+│   └── stateTask
+│
+├── App
+│   ├── attitude
+│   ├── rc
+│   └── app_debug
+│
+├── BSP
+│   ├── UART
+│   ├── I2C
+│   └── EXTI / Interrupt Hook
+│
+├── Driver
+│   ├── MPU6050
+│   ├── Motor520
+│   ├── HC-SR04
+│   ├── OLED
+│   └── WS2812
+│
+└── Lib
+    ├── PID
+    ├── IMU Fusion
+    ├── Delay
+    └── Queue
+```
+
+底层由 STM32CubeMX 生成：
+
+```text
+Core
+Drivers
+Middlewares/Third_Party/FreeRTOS
+```
+
+构建系统采用：
+
+```text
+CMake
+ └── Ninja
+      └── arm-none-eabi-gcc
+```
+
+---
+
+## 3. FreeRTOS Tasks
+
+当前应用任务由 `initTask` 动态创建。
+
+| Task | 运行频率 | 初始延时 | Stack |
 |---|---:|---:|---:|
 | `serialTask` | 100 Hz | 500 ms | 256 words |
 | `motionCtrlTask` | 500 Hz | 1000 ms | 512 words |
 | `stateTask` | 50 Hz | 500 ms | 256 words |
-| `initTask` | 初始化后退出 | - | 128 words |
 
-任务频率通过：
+FreeRTOS Tick：
+
+```text
+configTICK_RATE_HZ = 1000 Hz
+```
+
+任务优先级当前均设置为：
+
+```text
+osPriorityRealtime
+```
+
+`initTask` 完成任务和消息队列创建后自行退出。
+
+当前消息队列：
+
+```text
+serial     : 16 × uint32_t
+motionCtrl : 16 × uint32_t
+state      : 16 × uint32_t
+```
+
+FreeRTOS 动态堆：
+
+```text
+configTOTAL_HEAP_SIZE = 6656 bytes
+```
+
+内存管理方案：
+
+```text
+heap_4
+```
+
+---
+
+## 4. Motion Control
+
+核心控制流程位于：
+
+```text
+Usr/Task/Src/motionCtrlTask.cpp
+```
+
+每次控制周期执行：
+
+```text
+MPU6050 更新
+      ↓
+姿态融合
+      ↓
+坐标系旋转
+      ↓
+读取编码器
+      ↓
+读取超声波
+      ↓
+读取遥控状态
+      ↓
+计算目标速度 / 转向
+      ↓
+速度 PID
+      ↓
+姿态 PID
+      ↓
+转向 PID
+      ↓
+左右电机 PWM
+```
+
+当前控制任务频率：
+
+```text
+500 Hz
+```
+
+---
+
+## 5. PID Control
+
+当前使用 3 个位置式 PID：
+
+### 姿态环
+
+```text
+Kp = 400.0
+Ki = 0.0
+Kd = 1.0
+
+max_out  = 3000
+max_Iout = 100
+```
+
+输入：
+
+```text
+当前 Pitch
+```
+
+设定值来自速度环输出。
+
+---
+
+### 速度环
+
+```text
+Kp = 0.1
+Ki = 0.05
+Kd = 0.0
+
+max_out  = 100
+max_Iout = 100
+```
+
+输入：
+
+```text
+cn1_enc - cn2_enc
+```
+
+---
+
+### 转向环
+
+```text
+Kp = 10.0
+Ki = 0.0
+Kd = 0.6
+
+max_out  = 100
+max_Iout = 100
+```
+
+输入：
+
+```text
+gyro_z
+```
+
+目标值来自遥控转向指令。
+
+---
+
+### 电机输出
+
+最终左右电机控制量：
+
+```text
+motor1 = -pitch_output + turn_output
+motor2 =  pitch_output - turn_output
+```
+
+电机方向由输出正负决定，PWM 使用绝对值。
+
+---
+
+## 6. MPU6050 Attitude Fusion
+
+MPU6050 当前配置：
+
+```text
+加速度计：±4 g
+陀螺仪：±2000 °/s
+采样分频：SMPLRT_DIV = 1
+数字低通：CONFIG = 0x03
+```
+
+每次通过 MPU6050 的 `INT` 信号触发数据读取：
+
+```text
+MPU6050 INT
+    ↓
+EXTI5
+    ↓
+设置 rx_sig
+    ↓
+motionCtrlTask 调用 mpu6050_update()
+    ↓
+I2C2 DMA 读取 14 bytes
+    ↓
+DMA 完成回调
+    ↓
+解析加速度 / 温度 / 陀螺仪
+```
+
+一次读取：
+
+```text
+ACC_X
+ACC_Y
+ACC_Z
+TEMP
+GYRO_X
+GYRO_Y
+GYRO_Z
+```
+
+共：
+
+```text
+14 bytes
+```
+
+### 陀螺仪零偏校准
+
+启动后先累计约 999 组陀螺仪数据：
+
+```text
+gyro_offset = sum / count
+```
+
+之后从原始陀螺仪数据中减去零偏。
+
+校准完成后：
+
+```text
+cali_sig = 1
+```
+
+并通过线程标志通知 `stateTask`。
+
+---
+
+## 7. Quaternion Fusion
+
+姿态融合文件：
+
+```text
+Usr/Lib/Src/usr_fusion.c
+```
+
+主要功能：
+
+- 原始数据单位转换
+- 加速度归一化
+- 根据四元数估计重力方向
+- 加速度与重力方向叉积计算误差
+- PI 反馈修正陀螺仪
+- 四元数积分
+- 四元数归一化
+- 四元数转换为 Roll / Pitch / Yaw
+
+当前融合参数：
+
+```text
+Kp = 1.50
+Ki = 0.005
+```
+
+积分周期参数：
+
+```text
+halfT = 0.001 s
+```
+
+### 坐标系旋转
+
+工程额外提供：
 
 ```c
-#define TASK_FREQ_SERIAL       100u
-#define TASK_FREQ_MOTIONCTRL   500u
-#define TASK_FREQ_STATE         50u
+usr_coordinate_rotation_internal()
 ```
 
-统一配置。
+用于对姿态四元数进行坐标系旋转。
 
-任务主体采用 `osDelayUntil()` 进行周期调度，避免单纯使用阻塞式延时造成周期漂移。
+当前运动控制中使用：
+
+```c
+usr_coordinate_rotation_internal(
+    q_in,
+    q_out,
+    euler_out,
+    0, 0, 1,
+    90
+);
+```
+
+同时通过：
+
+```c
+usr_rq_vector()
+```
+
+将加速度和角速度向量转换到机器人使用的坐标系。
 
 ---
 
-## 4. 外设与引脚
+## 8. MPU6050 Temperature
 
-当前 CubeMX 工程中的主要外设配置如下。
-
-| 外设 | 引脚 | 用途 |
-|---|---|---|
-| USART1 | PA9 / PA10 | 调试串口、VOFA 数据 |
-| USART2 | PA2 / PA3 | 蓝牙串口 |
-| I2C1 | PB8 / PB9 | OLED |
-| I2C2 | PB10 / PB11 | MPU6050 |
-| TIM1 CH1 | PA8 | 电机 PWM |
-| TIM1 CH4 | PA11 | 电机 PWM |
-| 电机方向 | PB12~PB15 | 双路电机方向控制 |
-| TIM3 CH1 / CH2 | PA6 / PA7 | 编码器接口 |
-| TIM4 CH1 / CH2 | PB6 / PB7 | 编码器接口 |
-| HC-SR04 Trigger | PA0 | 超声波触发 |
-| HC-SR04 Echo | PA1 | EXTI 双边沿回波检测 |
-| ADC1 IN4 | PA4 | ADC 输入 |
-
-基础串口参数：
-
-```text
-USART1：115200 8N1
-USART2：115200 8N1
-```
-
-I2C 当前配置为：
-
-```text
-I2C1：100 kHz
-I2C2：100 kHz
-```
-
----
-
-## 5. MPU6050
-
-MPU6050 通过 I2C2 连接，采用 DMA 读取：
-
-```text
-ACCEL_XOUT_H ~ GYRO_ZOUT_L
-```
-
-一次读取 14 字节：
-
-```text
-加速度 X
-加速度 Y
-加速度 Z
-温度
-陀螺仪 X
-陀螺仪 Y
-陀螺仪 Z
-```
-
-当前配置：
-
-- 加速度量程：±4 g
-- 陀螺仪量程：±2000 °/s
-- I2C DMA 接收
-- EXTI5 作为数据更新触发入口
-- 温度转换：
+MPU6050 原始温度值转换：
 
 ```c
 temperature = raw_temperature / 340.0f + 36.53f;
 ```
 
-姿态解算部分将原始加速度、角速度转换为物理量后，通过四元数积分与加速度反馈进行姿态融合，输出：
+单位：
 
 ```text
-roll
-pitch
-yaw
-```
-
-同时保留归一化后的加速度与角速度数据用于调试。
-
----
-
-## 6. HC-SR04
-
-超声波模块使用：
-
-```text
-PA0 -> TRIG
-PA1 -> ECHO
-```
-
-Echo 采用双边沿 EXTI：
-
-1. 上升沿记录开始时间
-2. 下降沿记录结束时间
-3. 利用 DWT `CYCCNT` 计算高电平持续时间
-4. 换算距离
-
-当前有效测量窗口约为：
-
-```text
-100 us < Echo < 25 ms
-```
-
-距离单位为：
-
-```text
-cm
-```
-
-无效回波返回：
-
-```c
--1.0f
+°C
 ```
 
 ---
 
-## 7. 电机控制接口
+## 9. Remote Control
 
-当前电机接口使用 TIM1 的两个 PWM 通道：
-
-```text
-TIM1_CH1 -> PA8
-TIM1_CH4 -> PA11
-```
-
-方向控制：
+USART2 当前作为蓝牙 / 遥控输入接口：
 
 ```text
-PB12
-PB13
-PB14
-PB15
+115200 8N1
 ```
 
-PWM 周期：
+采用 1 byte 指令。
+
+定义：
 
 ```text
-TIM1 PSC = 0
-TIM1 ARR = 7199
+0x01 -> 前进
+0x02 -> 后退
+0x11 -> 左转
+0x12 -> 右转
+0xFF -> 刹车
 ```
 
-在 72 MHz 定时器时钟下，PWM 频率约为：
+遥控数据通过：
 
 ```text
-10 kHz
+USART2 RX interrupt
+    ↓
+rc_parser()
+    ↓
+rc.dir
+    ↓
+motionCtrlTask
 ```
-
-当前 `motor520.c` 已完成 PWM 启动和方向 GPIO 初始化；完整的速度闭环、编码器反馈以及平衡控制仍在持续完善。
 
 ---
 
-## 8. 编码器
+## 10. Debug Interface
 
-CubeMX 中已经配置：
-
-```text
-TIM3 -> PA6 / PA7
-TIM4 -> PB6 / PB7
-```
-
-均工作在 Encoder Interface 模式，计数周期：
+USART1：
 
 ```text
-ARR = 65535
-PSC = 0
+115200 8N1
 ```
 
-当前工程已经具备硬件接口和定时器配置，但完整的编码器读取、速度计算和闭环控制逻辑还需要继续集成。
+用于：
 
----
+- `printf`
+- 调试数据
+- VOFA+ 数据发送
+- 简单调试控制
 
-## 9. OLED
-
-OLED 驱动位于：
+当前调试命令：
 
 ```text
-Usr/Driver/OLED/
+'a' -> app_debug.flag = 1
+'z' -> app_debug.flag = 0
 ```
 
-当前屏幕参数：
+调试标志当前会影响运动控制中的速度目标：
 
 ```text
-128 × 64
-I2C1
+flag == 1 -> v_enc_set = 10
+flag == 0 -> v_enc_set = 0
 ```
 
-底层使用 I2C1 DMA + 环形队列处理发送，可以减少任务中频繁阻塞式发送带来的影响。
+因此目前代码中的 DEBUG 控制逻辑会覆盖遥控产生的前进速度设定，后续如果用于正式遥控控制，需要根据实际需求调整这一部分。
 
----
+### VOFA+ 数据
 
-## 10. WS2812
-
-WS2812 驱动位于：
+运动控制任务会周期性发送：
 
 ```text
-Usr/Driver/WS2812/
-```
-
-支持：
-
-```c
-ws2812_rgb_all()
-ws2812_rgb_unit()
-ws2812_effect_flow()
-ws2812_effect_blink()
-ws2812_effect_gradient()
-ws2812_rainbow()
-```
-
-颜色格式：
-
-```text
-0x00RRGGBB
-```
-
-驱动采用：
-
-```text
-72 MHz timer clock
-800 kHz PWM
-DMA
-```
-
-并提供：
-
-```text
-RGB / HSV
-亮度缩放
-流水
-闪烁
-渐变
-彩虹
-```
-
-### 注意
-
-当前 WS2812 驱动源码使用 `TIM3_CH3`，而当前 CubeMX 工程中的 TIM3 同时配置为 `CH1 / CH2` 编码器接口。
-
-因此，在当前版本中，**WS2812 与 TIM3 编码器配置存在资源复用冲突**。实际使用 WS2812 前需要根据硬件重新分配定时器/通道，或者修改驱动映射。
-
----
-
-## 11. PID
-
-PID 实现位于：
-
-```text
-Usr/Lib/
-```
-
-支持：
-
-- 位置式 PID
-- 增量式 PID
-- 输出限幅
-- 积分限幅
-
-接口示例：
-
-```c
-float usr_pid_caculate(
-    pid_t *pid,
-    float input,
-    float set
-);
-```
-
-当前运动控制任务中已经建立 PID 实例，后续可用于：
-
-```text
-角度环
-速度环
-位置环
-```
-
-等控制结构。
-
----
-
-## 12. 调试与 VOFA
-
-Debug 模式在 `CMakeLists.txt` 中默认启用：
-
-```cmake
-target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    DEBUG
-)
-```
-
-支持：
-
-```c
-DEBUG_PRINT(...)
-```
-
-并通过 USART1 向 VOFA 发送浮点数据。
-
-当前运动控制任务周期性输出：
-
-```text
-Acc X
-Acc Y
-Acc Z
-Gyro X
-Gyro Y
-Gyro Z
 Roll
 Pitch
 Yaw
-Temperature
-Distance
+HC-SR04 distance
+Object Euler X
+Object Euler Y
+Object Euler Z
+Encoder setpoint
+Encoder feedback
+Debug flag
+Velocity PID output
+Pitch PID output
+Turn PID output
 ```
 
-VOFA 帧尾：
+帧尾：
 
 ```text
 0x7F800000
@@ -430,189 +536,432 @@ VOFA 帧尾：
 
 ---
 
-## 13. 蓝牙遥控
+## 11. HC-SR04
 
-USART2 用于接收蓝牙遥控数据。
-
-当前定义的方向命令：
-
-```c
-RC_DIR_AHEAD = 0x01
-RC_DIR_BACK  = 0x02
-RC_DIR_LEFT  = 0x11
-RC_DIR_RIGHT = 0x12
-RC_DIR_BRAKE = 0xFF
-```
-
-接收采用中断方式，并封装在：
+HC-SR04 使用：
 
 ```text
-Usr/Bsp/bsp_uart.c
+TRIG -> PA0
+ECHO -> PA1 / EXTI1
 ```
 
-之上。
+触发脉冲：
+
+```text
+约 12 us
+```
+
+回波时间通过：
+
+```text
+DWT->CYCCNT
+```
+
+进行高精度计时。
+
+有效距离范围代码当前设置为：
+
+```text
+约 2 cm ~ 400 cm
+```
+
+距离计算：
+
+```text
+distance(cm) = echo_time(us) × 0.017
+```
+
+无效数据：
+
+```text
+distance = -1.0f
+```
 
 ---
 
-## 14. 工程目录
+## 12. OLED
+
+OLED 使用 SSD1306 类 128 × 64 显示器：
 
 ```text
-BALANCE_CAR/
-├── Core/                       # STM32CubeMX 生成的核心代码
+I2C1
+Address = I2C1_ADDRESS
+Resolution = 128 × 64
+```
+
+驱动支持：
+
+- 清屏
+- ASCII 字符
+- 字符串
+- Bitmap
+- 自定义字体
+- 动画
+- I2C DMA 发送
+
+OLED 数据通过 I2C1 软件队列发送，避免应用层直接阻塞等待 I2C 完成。
+
+---
+
+## 13. WS2812
+
+WS2812 使用：
+
+```text
+TIM3 CH3
+PWM + DMA
+```
+
+PWM 频率：
+
+```text
+800 kHz
+```
+
+系统时钟：
+
+```text
+72 MHz
+```
+
+定时器：
+
+```text
+PSC = 0
+ARR = 89
+```
+
+当前 LED 数量：
+
+```text
+3
+```
+
+支持：
+
+- 单色控制
+- 单颗 LED 控制
+- 流水灯
+- 闪烁
+- 渐变
+- HSV → RGB
+- 彩虹效果
+
+---
+
+## 14. UART / I2C DMA Architecture
+
+UART 和 I2C 外设均采用队列 + DMA 的方式处理发送。
+
+### UART
+
+```text
+Application
+    ↓
+uart_write_data()
+    ↓
+software queue
+    ↓
+DMA
+    ↓
+TX complete callback
+    ↓
+继续发送 / 队列空闲
+```
+
+USART1 和 USART2 各自拥有：
+
+```text
+256 bytes TX queue
+```
+
+接收目前采用：
+
+```text
+HAL_UART_Receive_IT()
+```
+
+以固定长度接收，并通过 hook 回调交给上层解析。
+
+### I2C
+
+I2C1：
+
+```text
+OLED TX queue + DMA
+```
+
+I2C2：
+
+```text
+MPU6050 memory read + DMA
+```
+
+---
+
+## 15. Project Structure
+
+```text
+Balance_Car_HAL_Proj/
+│
+├── Core/
 │   ├── Inc/
 │   └── Src/
 │
-├── Drivers/                   # CMSIS / STM32 HAL / FreeRTOS 等底层依赖
+├── Drivers/
+│   ├── CMSIS/
+│   └── STM32F1xx_HAL_Driver/
 │
 ├── Middlewares/
 │   └── Third_Party/
 │       └── FreeRTOS/
 │
 ├── Usr/
-│   ├── App/                   # 应用层
-│   ├── Bsp/                   # 板级支持层
-│   ├── Driver/                # 外设/器件驱动
-│   ├── Lib/                   # PID、队列、延时、姿态融合等基础库
-│   └── Task/                  # FreeRTOS 任务
+│   ├── App/
+│   │   ├── Inc/
+│   │   └── Src/
+│   │
+│   ├── Bsp/
+│   │   ├── Inc/
+│   │   └── Src/
+│   │
+│   ├── Driver/
+│   │   ├── HC_SR04/
+│   │   ├── Motor520/
+│   │   ├── MPU6050/
+│   │   ├── OLED/
+│   │   └── WS2812/
+│   │
+│   ├── Lib/
+│   │   ├── Inc/
+│   │   └── Src/
+│   │
+│   ├── Task/
+│   │   ├── Inc/
+│   │   └── Src/
+│   │
+│   ├── usr_config.c
+│   └── usr_config.h
 │
-├── cmake/                     # ARM GCC 工具链与 CubeMX CMake
+├── cmake/
+│   └── gcc-arm-none-eabi.cmake
 │
-├── Balance_Car_HAL_Proj.ioc   # STM32CubeMX 工程配置
+├── Balance_Car_HAL_Proj.ioc
 ├── CMakeLists.txt
 ├── CMakePresets.json
-└── STM32F103XX_FLASH.ld
+├── STM32F103XX_FLASH.ld
+├── startup_stm32f103xb.s
+└── README.md
 ```
 
 ---
 
-## 15. 构建环境
+## 16. Build
 
-推荐环境：
+### Toolchain
 
-- Windows / Linux
-- CMake >= 3.22
+需要准备：
+
+- CMake
 - Ninja
 - `arm-none-eabi-gcc`
-- STM32CubeMX
-- VS Code
-- Cortex-Debug / OpenOCD / ST-LINK 等烧录调试工具
+- STM32CubeMX（如果需要修改 `.ioc`）
+- VS Code（推荐）
 
-工程使用 CMake Presets，并自带 ARM GCC Toolchain：
+工程已经提供：
 
 ```text
+CMakePresets.json
 cmake/gcc-arm-none-eabi.cmake
 ```
 
-确保：
+### Debug 构建
 
-```text
-arm-none-eabi-gcc
-arm-none-eabi-g++
-arm-none-eabi-objcopy
-arm-none-eabi-size
-```
-
-已经加入系统 `PATH`。
-
----
-
-## 16. CMake 构建
-
-### Debug
-
-```powershell
+```bash
 cmake --preset Debug
 cmake --build --preset Debug
 ```
 
-### Release
+### Release 构建
 
-```powershell
+```bash
 cmake --preset Release
 cmake --build --preset Release
 ```
 
-构建目录：
+生成的主要文件位于：
 
 ```text
-build/
-├── Debug/
-└── Release/
+build/Debug/
+build/Release/
 ```
 
-工程目标文件使用 `.elf` 格式。
+其中包含：
+
+```text
+Balance_Car_HAL_Proj.elf
+Balance_Car_HAL_Proj.hex
+Balance_Car_HAL_Proj.map
+```
+
+如果使用 VS Code，也可以直接通过 CMake Tools / Ninja 进行配置和编译。
 
 ---
 
-## 17. STM32CubeMX
+## 17. Configuration
 
-如果需要修改 MCU 外设配置：
+主要工程参数集中在：
 
-1. 使用 STM32CubeMX 打开：
+```text
+Usr/usr_config.h
+Usr/usr_config.c
+```
+
+例如任务频率：
+
+```c
+#define TASK_FREQ_SERIAL       100u
+#define TASK_FREQ_MOTIONCTRL   500u
+#define TASK_FREQ_STATE         50u
+```
+
+PID 参数：
+
+```text
+Usr/Task/Src/motionCtrlTask.cpp
+```
+
+FreeRTOS 参数：
+
+```text
+Core/Inc/FreeRTOSConfig.h
+```
+
+STM32 外设配置：
 
 ```text
 Balance_Car_HAL_Proj.ioc
 ```
 
-2. 修改 GPIO / DMA / TIM / USART / I2C / FreeRTOS 等配置
-3. 重新生成代码
-4. 检查 `Usr/` 下的用户代码是否需要同步修改
-5. 重新使用 CMake 构建
+---
 
-建议优先把应用逻辑放在：
+## 18. Current Development Status
+
+当前工程已经完成基础软件框架和主要外设驱动，并能够形成完整的：
 
 ```text
-Usr/
+传感器采集
+    ↓
+姿态融合
+    ↓
+状态估计
+    ↓
+目标设定
+    ↓
+PID 控制
+    ↓
+电机输出
 ```
 
-中，减少 CubeMX 重新生成代码时的改动冲突。
+目前仍属于持续开发中的个人项目。
+
+后续可以继续完善：
+
+- [ ] 更完善的遥控协议
+- [ ] 姿态 / 速度环参数整定
+- [ ] 编码器速度单位和实际车速标定
+- [ ] 电机死区补偿
+- [ ] 电池电压监测与低压保护
+- [ ] 更完善的异常状态机
+- [ ] 电机堵转 / 失控检测
+- [ ] MPU6050 姿态融合参数优化
+- [ ] OLED 实时状态界面
+- [ ] 完善正式运动控制逻辑
+- [ ] 增加硬件原理图和 PCB 文档
 
 ---
 
-## 18. 当前开发状态
+## 19. Development Notes
 
-### 已完成 / 已搭建
+### 代码风格
 
-- [x] STM32F103C8T6 HAL 工程
-- [x] 72 MHz 系统时钟
-- [x] FreeRTOS + CMSIS-RTOS v2
-- [x] 多任务框架
-- [x] UART DMA 发送队列
-- [x] I2C DMA 发送/接收基础框架
-- [x] MPU6050 驱动
-- [x] MPU6050 姿态融合
-- [x] HC-SR04 驱动
-- [x] OLED 驱动
-- [x] WS2812 驱动
-- [x] PID 基础库
-- [x] 蓝牙遥控数据解析
-- [x] VOFA 调试输出
-- [x] TIM3 / TIM4 编码器外设配置
-- [x] 电机 PWM / 方向控制基础接口
+工程中底层驱动主要使用 C：
 
-### 后续完善
+```text
+.c / .h
+```
 
-- [ ] 编码器速度 / 位置计算
-- [ ] 电机速度闭环
-- [ ] 平衡车角度环
-- [ ] 级联 PID 控制
-- [ ] 蓝牙指令与底盘运动控制联动
-- [ ] 状态机完善
-- [ ] WS2812 与编码器的定时器资源重新分配
-- [ ] 低功耗、异常恢复与更完整的故障保护
+任务层部分使用 C++：
+
+```text
+.cpp / .h
+```
+
+C / C++ 之间通过：
+
+```c
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+```
+
+进行接口兼容。
+
+### 时间管理
+
+FreeRTOS 任务周期主要使用：
+
+```c
+osDelayUntil()
+```
+
+避免使用固定延时导致任务周期随执行时间漂移。
+
+### 调试
+
+Debug 构建定义：
+
+```text
+DEBUG
+```
+
+支持：
+
+```c
+DEBUG_PRINT(...)
+CHECK_STACK_AVAILABLE(...)
+CHECK_HEAP_AVAILABLE()
+VOFA_SEND_FLOATS(...)
+```
+
+用于观察：
+
+- 任务栈余量
+- FreeRTOS Heap
+- 姿态角
+- 编码器
+- PID 输出
+- 超声波距离
 
 ---
 
-## 19. 许可证
+## 20. Author
 
-本仓库当前未单独附加项目 License 文件。
+个人嵌入式 / 机器人控制项目。
 
-如果将项目公开发布，建议根据实际情况补充合适的开源许可证。
+技术方向：
 
----
+```text
+STM32
+C / C++
+FreeRTOS
+传感器驱动
+姿态解算
+PID
+电机控制
+机器人电子控制
+PCB / 嵌入式系统
+```
 
-## 20. Repository
-
-GitHub：
-
-https://github.com/XCthulhudj/BALANCE_CAR
+项目用于个人学习、机器人控制算法验证以及嵌入式工程实践。
