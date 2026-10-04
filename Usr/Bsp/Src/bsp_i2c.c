@@ -91,21 +91,8 @@ i2c_state_t i2c2_read_start_memAddSize_8bit(uint16_t mem_address, uint16_t size)
     }
 }
 
-i2c_state_t i2c2_read_clear_flag_memAddSize_8bit(uint16_t mem_address){
-    static uint8_t tmp;
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Read_DMA(&hi2c2, i2c2.dev_id, mem_address, I2C_MEMADD_SIZE_8BIT, &tmp, 1);
-    switch(ret){
-        case HAL_OK: return I2C_OK;
-        case HAL_ERROR: return I2C_ERROR;
-        case HAL_BUSY: return I2C_BUSY;
-        case HAL_TIMEOUT: return I2C_TIMEOUT;
-        default: return I2C_OK;
-    }
-}
-
-i2c_state_t i2c2_read_start_memAddSize_8bit_dmp(uint16_t mem_address, uint16_t size, uint8_t *data_ptr){
-    HAL_I2C_Mem_Read_DMA(&hi2c2, i2c2.dev_id, mem_address, I2C_MEMADD_SIZE_8BIT, data_ptr, size);
-    return I2C_OK;
+i2c_state_t i2c2_read_byte_memAddSize_8bit_blocking(uint16_t devAddr, uint8_t memAddr, uint8_t *data){
+    return HAL_I2C_Mem_Read(&hi2c2, i2c2.dev_id, memAddr, I2C_MEMADD_SIZE_8BIT, data, 1, 100);
 }
 
 i2c_state_t i2c2_hook_register(i2c_event_hook_t func_parser, uint8_t *buff_ptr, uint8_t dev_id){

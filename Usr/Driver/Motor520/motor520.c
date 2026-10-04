@@ -37,11 +37,11 @@ extern TIM_HandleTypeDef htim4;
     HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_2); \
 }while(0)
 #define MOTOR520_CN1_ENCODER_GET(x) do{ \
-    (x) = __HAL_TIM_GET_COUNTER(&htim3); \
+    (x) = (int16_t)__HAL_TIM_GET_COUNTER(&htim3); \
     __HAL_TIM_SET_COUNTER(&htim3, 0); \
 }while(0)
 #define MOTOR520_CN2_ENCODER_GET(x) do{ \
-    (x) = __HAL_TIM_GET_COUNTER(&htim4); \
+    (x) = (int16_t)__HAL_TIM_GET_COUNTER(&htim4); \
     __HAL_TIM_SET_COUNTER(&htim4, 0); \
 }while(0)
 #define MOTOR520_CN1_DIR_P() do{ \

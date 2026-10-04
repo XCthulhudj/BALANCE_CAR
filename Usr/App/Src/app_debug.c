@@ -11,10 +11,8 @@ app_debug_t app_debug;
 static void app_debug_parser(void *arg);
 
 app_debug_t* app_debug_init(void){
-#ifdef DEBUG
     serial_debug_rx_hook_register(app_debug_parser, app_debug.rx_buff);
-#endif
-return &app_debug;
+    return &app_debug;
 }
 
 static void app_debug_parser(void *arg){

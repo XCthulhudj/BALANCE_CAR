@@ -26,8 +26,10 @@
 #define	MPU6050_GYRO_ZOUT_H		0x47
 #define	MPU6050_GYRO_ZOUT_L		0x48
 
-#define MPU6050_USER_CTRL	0X6A //用户控制寄存器
+#define MPU6050_USER_CTRL	    0X6A //用户控制寄存器
 
 #define	MPU6050_PWR_MGMT_1		0x6B
 #define	MPU6050_PWR_MGMT_2		0x6C
 #define	MPU6050_WHO_AM_I		0x75
+
+#define MPU6050_WHO_AM_I_VALUE  0x68   // 正品 MPU6050 通常是 0x68

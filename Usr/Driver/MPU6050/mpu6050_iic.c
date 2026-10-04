@@ -16,16 +16,31 @@
 
 static mpu6050_data_t mpu6050_data;
 
+static uint8_t mpu6050_check(void);
 static void mpu6050_parser(void *arg);
 static void mpu6050_read_start(void *arg);
 
 mpu6050_data_t* mpu6050_init(void){
 	i2c2_hook_register(mpu6050_parser, mpu6050_data.rawData, MPU6050_ADDRESS);
 
-	i2c2_write_byte_memAddSize_8bit(MPU6050_PWR_MGMT_1, 0x80);
-	osDelay(100);
-	i2c2_write_byte_memAddSize_8bit(MPU6050_PWR_MGMT_1,0x01);
-	osDelay(100);
+	uint8_t who = 0, cnt = 0;
+	for(; cnt < 5; cnt++){
+        i2c2_write_byte_memAddSize_8bit(MPU6050_PWR_MGMT_1, 0x80);
+        osDelay(100);
+
+        // 唤醒，选择 PLL 时钟
+        i2c2_write_byte_memAddSize_8bit(MPU6050_PWR_MGMT_1, 0x01);
+        osDelay(100);
+
+        // 读 WHO_AM_I 验证
+        who = mpu6050_check();
+        if (who == MPU6050_WHO_AM_I_VALUE) {
+            break;  // 成功
+        }
+
+        osDelay(100);  // 失败后等一会儿再重试
+	}
+
 	i2c2_write_byte_memAddSize_8bit(MPU6050_PWR_MGMT_2,0x00);
 	i2c2_write_byte_memAddSize_8bit(MPU6050_SMPLRT_DIV,0x01);
 	i2c2_write_byte_memAddSize_8bit(MPU6050_CONFIG,0x03);
@@ -36,24 +51,24 @@ mpu6050_data_t* mpu6050_init(void){
 
 	exti_it_hook_register(mpu6050_read_start, 5);
 
-	mpu6050_data.fusion_data.q[0] = 1;
-	mpu6050_data.cali_sig = 1;
 	return &mpu6050_data;
 }
 
 mpu6050_state_t mpu6050_update(void){
-	if(mpu6050_data.cali_sig == 1){
-		if(mpu6050_data.cali.cnt >= 499){
+	if(mpu6050_data.cali_sig == 0){
+		if(mpu6050_data.cali.cnt >= 999){
             mpu6050_data.cali.gyro_x = (float)mpu6050_data.cali.sum[0] / mpu6050_data.cali.cnt;
             mpu6050_data.cali.gyro_y = (float)mpu6050_data.cali.sum[1] / mpu6050_data.cali.cnt;
             mpu6050_data.cali.gyro_z = (float)mpu6050_data.cali.sum[2] / mpu6050_data.cali.cnt;
+
+			mpu6050_data.fusion_data.q[0] = 1;
 
             mpu6050_data.cali.sum[0] = 0;
             mpu6050_data.cali.sum[1] = 0;
             mpu6050_data.cali.sum[2] = 0;
             mpu6050_data.cali.cnt = 0;
 
-            mpu6050_data.cali_sig = 0;
+            mpu6050_data.cali_sig = 1;
         }
 	}
 	mpu6050_data.fusion_data.raw.ax = mpu6050_data.raw.acc_x;
@@ -63,7 +78,7 @@ mpu6050_state_t mpu6050_update(void){
 	mpu6050_data.fusion_data.raw.gy = mpu6050_data.raw.gyro_y - mpu6050_data.cali.gyro_y;
 	mpu6050_data.fusion_data.raw.gz = mpu6050_data.raw.gyro_z - mpu6050_data.cali.gyro_z;
 	mpu6050_data.temperature = mpu6050_data.raw.temperature / 340.0f + 36.53f;
-	if(mpu6050_data.cali_sig == 0){
+	if(mpu6050_data.cali_sig == 1){
 		usr_fusion_imu_update(&mpu6050_data.fusion_data);
 	}
 
@@ -73,6 +88,12 @@ mpu6050_state_t mpu6050_update(void){
 	}
 
 	return MPU6050_OK;
+}
+
+static uint8_t mpu6050_check(void){
+    uint8_t who = 0;
+    i2c2_read_byte_memAddSize_8bit_blocking(MPU6050_ADDRESS, MPU6050_WHO_AM_I, &who);
+    return who;
 }
 
 static void mpu6050_parser(void *arg){
@@ -85,7 +106,7 @@ static void mpu6050_parser(void *arg){
 	mpu6050_data.raw.gyro_y = ((int16_t)mpu6050_data.rawData[10] << 8) | mpu6050_data.rawData[11];
 	mpu6050_data.raw.gyro_z = ((int16_t)mpu6050_data.rawData[12] << 8) | mpu6050_data.rawData[13];
 
-	if(mpu6050_data.cali_sig == 1){
+	if(mpu6050_data.cali_sig == 0){
         mpu6050_data.cali.sum[0] += mpu6050_data.raw.gyro_x;
         mpu6050_data.cali.sum[1] += mpu6050_data.raw.gyro_y;
         mpu6050_data.cali.sum[2] += mpu6050_data.raw.gyro_z;

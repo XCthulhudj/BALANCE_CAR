@@ -1,11 +1,8 @@
 #include "motionCtrlTask.h"
 
-#include <cstdint>
-#include <stdio.h>
-
+#include <stdint.h>
 #include <cmsis_os2.h>
 #include "FreeRTOS.h"
-
 #include "main.h"
 
 #include "usr_config.h"
@@ -22,8 +19,8 @@
 
 extern IWDG_HandleTypeDef hiwdg;
 
-static fp32 pid_pitch[3] = {100.0f, 0.0f, 2.0f};
-static fp32 pid_vel[3] = {0.5f, 0.0f, 0.0f};
+static fp32 pid_pitch[3] = {400.0f, 0.0f, 1.0f};
+static fp32 pid_vel[3] = {0.1f, 0.05f, 0.0f};
 static fp32 pid_turn[3] = {10.0f, 0.0f, 0.6f};
 
 motion_t motion;
@@ -31,6 +28,7 @@ motion_t motion;
 static motion_state_t motion_init(void);
 static motion_state_t motion_update(void);
 static motion_state_t motion_set(void);
+static motion_state_t motion_check(void);
 static motion_state_t motion_load(void);
 
 void motionCtrlTask(void *argument){
@@ -46,6 +44,8 @@ void motionCtrlTask(void *argument){
         motion_update();
 
         motion_set();
+
+        motion_check();
 
         motion_load();
 
@@ -86,7 +86,7 @@ void motionCtrlTask(void *argument){
 }
 
 static motion_state_t motion_init(void){
-    usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 5000.0f, 100.0f);
+    usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 3000.0f, 100.0f);
     usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 100.0f, 100.0f);
     usr_pid_init(&motion.pid.turn, PID_POSITION, pid_turn, 100.0f, 100.0f);
 
@@ -130,7 +130,7 @@ static motion_state_t motion_update(void){
     motion.hc_sr04_ptr->echo_func();
 
     motor520_update();
-    motion.object.v_enc = motion.motor520_ptr->cn1_enc -motion.motor520_ptr->cn2_enc;
+    motion.object.v_enc = motion.motor520_ptr->cn1_enc - motion.motor520_ptr->cn2_enc;
 
     return MOTION_OK;
 }
@@ -177,6 +177,15 @@ static motion_state_t motion_set(void){
 
     motion.motor520_ptr->cn1_set = -pwm_compare_set + turn_compare_added;
     motion.motor520_ptr->cn2_set = pwm_compare_set - turn_compare_added;
+    return MOTION_OK;
+}
+
+static motion_state_t motion_check(void){
+    static uint8_t once_flag[5];
+    if(motion.imu_ptr->cali_sig == 1 && once_flag[0] == 0){
+        once_flag[0] = 1;
+        osThreadFlagsSet(task_struct.thread.state, CALI_FLAG);
+    }
     return MOTION_OK;
 }
 

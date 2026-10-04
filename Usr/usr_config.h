@@ -16,6 +16,8 @@ extern "C" {
 #define TASK_INIT_DELAY_MOTIONCTRL 1000u
 #define TASK_INIT_DELAY_STATE 500u
 
+#define CALI_FLAG (1u << 0)
+
 typedef struct{
     /*线程任务*/
     struct{

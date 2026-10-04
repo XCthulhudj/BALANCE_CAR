@@ -18,7 +18,9 @@ extern "C" {
 typedef enum{
     MOTION_OK = 0,
     MOTION_ERROR,
-    MOTION_WARNING,
+    MOTION_BUSY,
+    MOTION_TIMEOUT,
+    MOTION_WARNING
 }motion_state_t;
 
 typedef struct{
