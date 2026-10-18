@@ -19,9 +19,9 @@
 
 extern IWDG_HandleTypeDef hiwdg;
 
-static fp32 pid_pitch[3] = {400.0f, 0.0f, 1.0f};
-static fp32 pid_vel[3] = {0.1f, 0.05f, 0.0f};
-static fp32 pid_turn[3] = {10.0f, 0.0f, 0.6f};
+static fp32 pid_pitch[3] = {100.0f, 0.0f, 0.01f};
+static fp32 pid_vel[3] = {3.0f, 0.01f, 0.001f};
+static fp32 pid_turn[3] = {1.0f, 0.0f, 0.0f};
 
 motion_t motion;
 
@@ -76,7 +76,10 @@ void motionCtrlTask(void *argument){
                 (fp32)motion.app_debug_ptr->flag,
                 motion.pid.vel.out,
                 motion.pid.pitch.out,
-                motion.pid.turn.out
+                motion.pid.turn.out,
+                (fp32)motion.rc_ptr->dir,
+                (fp32)motion.motor520_ptr->cn1_enc,
+                (fp32)motion.motor520_ptr->cn2_enc
             );
         }
 
@@ -86,9 +89,9 @@ void motionCtrlTask(void *argument){
 }
 
 static motion_state_t motion_init(void){
-    usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 3000.0f, 100.0f);
-    usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 100.0f, 100.0f);
-    usr_pid_init(&motion.pid.turn, PID_POSITION, pid_turn, 100.0f, 100.0f);
+    usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 3000.0f, 500.0f);
+    usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 10.0f, 1.0f);
+    usr_pid_init(&motion.pid.turn, PID_POSITION, pid_turn, 1.0f, 1.0f);
 
     motion.imu_ptr = mpu6050_init();
 
@@ -130,7 +133,7 @@ static motion_state_t motion_update(void){
     motion.hc_sr04_ptr->echo_func();
 
     motor520_update();
-    motion.object.v_enc = motion.motor520_ptr->cn1_enc - motion.motor520_ptr->cn2_enc;
+    motion.object.v_enc = motion.motor520_ptr->cn1_enc + motion.motor520_ptr->cn2_enc;
 
     return MOTION_OK;
 }
@@ -175,8 +178,8 @@ static motion_state_t motion_set(void){
     pwm_compare_set = usr_pid_caculate(&motion.pid.pitch, motion.object.euler[1], motion.pid.vel.out);
     turn_compare_added = usr_pid_caculate(&motion.pid.turn, motion.object.gyro[2], motion.object.wz_enc_set);
 
-    motion.motor520_ptr->cn1_set = -pwm_compare_set + turn_compare_added;
-    motion.motor520_ptr->cn2_set = pwm_compare_set - turn_compare_added;
+    motion.motor520_ptr->cn1_set = pwm_compare_set + turn_compare_added;
+    motion.motor520_ptr->cn2_set = -pwm_compare_set - turn_compare_added;
     return MOTION_OK;
 }
 

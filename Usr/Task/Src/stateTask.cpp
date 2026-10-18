@@ -21,12 +21,13 @@ void stateTask(void *argument){
     (void)argument;
 
     const uint32_t delayTick = osKernelGetTickFreq() / TASK_FREQ_STATE;
-    
+    oled_init();
+    oled_show_char(1,1,'c');
     osDelay(TASK_INIT_DELAY_STATE);
     uint32_t tick = osKernelGetTickCount();
 
     while(1){
-        CHECK_STACK_AVAILABLE(stateTask);
+        // CHECK_STACK_AVAILABLE(stateTask);
 
         state_check();
 
