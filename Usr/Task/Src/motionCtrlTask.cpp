@@ -19,9 +19,9 @@
 
 extern IWDG_HandleTypeDef hiwdg;
 
-static fp32 pid_pitch[3] = {100.0f, 0.0f, 0.01f};
-static fp32 pid_vel[3] = {3.0f, 0.01f, 0.001f};
-static fp32 pid_turn[3] = {1.0f, 0.0f, 0.0f};
+static fp32 pid_pitch[3] = {200.0f, 0.0f, 10};
+static fp32 pid_vel[3] = {0.1f, 0.001f, 0.01f};
+static fp32 pid_turn[3] = {0.0f, 0.0f, 0.0f};
 
 motion_t motion;
 
@@ -90,7 +90,7 @@ void motionCtrlTask(void *argument){
 
 static motion_state_t motion_init(void){
     usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 3000.0f, 500.0f);
-    usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 10.0f, 1.0f);
+    usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 10.0f, 0.01f);
     usr_pid_init(&motion.pid.turn, PID_POSITION, pid_turn, 1.0f, 1.0f);
 
     motion.imu_ptr = mpu6050_init();
@@ -133,7 +133,7 @@ static motion_state_t motion_update(void){
     motion.hc_sr04_ptr->echo_func();
 
     motor520_update();
-    motion.object.v_enc = motion.motor520_ptr->cn1_enc + motion.motor520_ptr->cn2_enc;
+    motion.object.v_enc = motion.motor520_ptr->cn1_enc - motion.motor520_ptr->cn2_enc;
 
     return MOTION_OK;
 }
