@@ -19,8 +19,8 @@
 
 extern IWDG_HandleTypeDef hiwdg;
 
-static fp32 pid_pitch[3] = {200.0f, 0.0f, 10};
-static fp32 pid_vel[3] = {0.1f, 0.001f, 0.01f};
+static fp32 pid_pitch[3] = {400.0f, 0.0f, 5.0f};
+static fp32 pid_vel[3] = {0.0f, 0.0f, 0.0f};
 static fp32 pid_turn[3] = {0.0f, 0.0f, 0.0f};
 
 motion_t motion;
@@ -89,8 +89,8 @@ void motionCtrlTask(void *argument){
 }
 
 static motion_state_t motion_init(void){
-    usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 3000.0f, 500.0f);
-    usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 10.0f, 0.01f);
+    usr_pid_init(&motion.pid.vel, PID_POSITION, pid_vel, 10.0f, 0.1f);
+    usr_pid_init(&motion.pid.pitch, PID_POSITION, pid_pitch, 6000.0f, 500.0f);
     usr_pid_init(&motion.pid.turn, PID_POSITION, pid_turn, 1.0f, 1.0f);
 
     motion.imu_ptr = mpu6050_init();
@@ -168,14 +168,23 @@ static motion_state_t motion_set(void){
 
     /* DEBUG */
     if(motion.app_debug_ptr->flag == 1){
-        motion.object.v_enc_set = 10;
+        motion.object.v_enc_set = 6;
     }else{
         motion.object.v_enc_set = 0;
     }
-
+   
     int32_t pwm_compare_set = 0, turn_compare_added = 0;
     usr_pid_caculate(&motion.pid.vel, motion.object.v_enc, motion.object.v_enc_set);
-    pwm_compare_set = usr_pid_caculate(&motion.pid.pitch, motion.object.euler[1], motion.pid.vel.out);
+    {
+        static fp32 vel_low_out_last = 0;
+        static float a = 0.7;
+        fp32 vel_low_out;
+        vel_low_out = (1 - a) * motion.pid.vel.out + a * vel_low_out_last;
+        motion.pid.vel.out = vel_low_out;
+        vel_low_out_last = vel_low_out;
+    }
+    
+    pwm_compare_set = usr_pid_caculate(&motion.pid.pitch, motion.object.euler[1], motion.pid.vel.out - 6.0f);
     turn_compare_added = usr_pid_caculate(&motion.pid.turn, motion.object.gyro[2], motion.object.wz_enc_set);
 
     motion.motor520_ptr->cn1_set = pwm_compare_set + turn_compare_added;

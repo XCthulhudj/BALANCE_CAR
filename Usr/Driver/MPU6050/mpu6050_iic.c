@@ -74,8 +74,8 @@ mpu6050_state_t mpu6050_update(void){
 	mpu6050_data.fusion_data.raw.ax = mpu6050_data.raw.acc_x;
 	mpu6050_data.fusion_data.raw.ay = mpu6050_data.raw.acc_y;
 	mpu6050_data.fusion_data.raw.az = mpu6050_data.raw.acc_z;
-	mpu6050_data.fusion_data.raw.gx = mpu6050_data.raw.gyro_x - mpu6050_data.cali.gyro_x;
-	mpu6050_data.fusion_data.raw.gy = mpu6050_data.raw.gyro_y - mpu6050_data.cali.gyro_y;
+	mpu6050_data.fusion_data.raw.gx = mpu6050_data.raw.gyro_x;
+	mpu6050_data.fusion_data.raw.gy = mpu6050_data.raw.gyro_y;
 	mpu6050_data.fusion_data.raw.gz = mpu6050_data.raw.gyro_z - mpu6050_data.cali.gyro_z;
 	mpu6050_data.temperature = mpu6050_data.raw.temperature / 340.0f + 36.53f;
 	if(mpu6050_data.cali_sig == 1){
