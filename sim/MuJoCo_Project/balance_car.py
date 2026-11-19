@@ -136,7 +136,7 @@ FIRMWARE = Gains()
 STABLE = Gains(
     kp_pitch=60.5, ki_pitch=0.0, kd_pitch=394.6,
     max_out_pitch=3000.0, max_iout_pitch=500.0,
-    kp_vel=0.0169, ki_vel=0.00024, kd_vel=0.001,
+    kp_vel=0.0169, ki_vel=1.00024, kd_vel=0.001,
     max_out_vel=8.6, max_iout_vel=7.40,
     vel_err_sign=-1.0,
 )
@@ -484,8 +484,8 @@ def _follow_camera(viewer, sim: BalanceSim) -> None:
         cam = viewer.cam
         cam.type = mujoco.mjtCamera.mjCAMERA_FREE
         cam.lookat[:] = (float(sim.data.qpos[sim.ids.slide_x_q]), 0.0, 0.12)
-        cam.distance = 1.9
-        cam.azimuth = 90.0      # 从 -y 方向看过去，即侧面
+        cam.distance = 1 #1.9
+        cam.azimuth = 150.0      # 从 -y 方向看过去，即侧面 90
         cam.elevation = -12.0
     except Exception:  # pragma: no cover - 不同版本字段差异
         pass
